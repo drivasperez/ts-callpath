@@ -1,0 +1,32 @@
+{
+  "name": "ts-callpath",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript call graph slicing tool",
+  "type": "module",
+  "scripts": {
+    "callpath": "tsx src/cli.ts",
+    "build:visualiser": "node visualiser/build.mjs",
+    "test": "vitest",
+    "test:unit": "vitest --project unit",
+    "test:browser": "vitest --project browser",
+    "test:ci": "vitest run",
+    "test:unit:ci": "vitest run --project unit",
+    "test:browser:ci": "vitest run --project browser",
+    "typecheck": "tsc --noEmit --watch",
+    "typecheck:ci": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "highlight.js": "^11.11.1",
+    "typescript": "^5.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/browser": "^4.0.0",
+    "@vitest/browser-playwright": "^4.0.0",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.7.0",
+    "vitest": "^4.0.0"
+  }
+}

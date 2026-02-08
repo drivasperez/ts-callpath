@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ts-callpath Visualizer</title>
+  <style>
+    /* ── Theme variables ─────────────────────────────────────────────────── */
+    :root {
+      /* Dark theme (default) */
+      --body-bg: #1a1a2e;
+      --body-text: #eee;
+      --toolbar-bg: #16213e;
+      --toolbar-border: #333;
+      --btn-bg: #2a2a4a;
+      --btn-text: #ccc;
+      --btn-border: #444;
+      --btn-hover-bg: #3a3a5a;
+      --btn-hover-text: #fff;
+      --title-text: #8888cc;
+      --stats-text: #666;
+      --panel-bg: #1e1e3a;
+      --panel-border: #444;
+      --panel-text: #bbb;
+      --input-bg: #111;
+      --input-text: #ccc;
+      --input-border: #444;
+      --input-focus-border: #6666aa;
+      --legend-separator: #333;
+      --kbd-text: #888;
+      --kbd-bg: rgba(255,255,255,0.06);
+      --kbd-border: #555;
+      --node-source: #2d6a4f;
+      --node-target: #a4243b;
+      --node-instrumented: #5c4d1a;
+      --node-fill: #3a3a3a;
+      --node-border: #cccccc;
+      --node-text: #ffffff;
+      --edge-direct: #cccccc;
+      --edge-static-method: #6fa8dc;
+      --edge-di-default: #b48ead;
+      --edge-instrument-wrapper: #888888;
+      --edge-re-export: #ebcb8b;
+      --edge-backedge: #d9534f;
+      --cluster-border: #666666;
+      --cluster-label: #999999;
+      --cluster-fill: rgba(50,50,50,0.3);
+      --tooltip-bg: #222;
+      --tooltip-text: #eee;
+      --tooltip-border: #555;
+      --source-bg: #1a1a2e;
+      --source-header-bg: #16213e;
+      --source-header-text: #8888cc;
+      --source-header-border: #333;
+      --source-link: #6fa8dc;
+      --source-close: #888;
+      --source-sig-bg: rgba(255,255,255,0.04);
+      --source-sig-border: #333;
+      --source-sig-text: #8899aa;
+      --source-linenum: #666;
+      --source-highlight: rgba(100,130,200,0.12);
+      --source-desc-bg: rgba(255,255,255,0.06);
+      --source-desc-border: #6fa8dc;
+      --source-desc-text: #b0c4de;
+      --search-bg: #1e1e3a;
+      --search-border: #555;
+      --search-input-bg: #111;
+      --search-input-text: #eee;
+      --search-input-border: #444;
+      --search-result-text: #ccc;
+      --search-result-hover: #2a2a4a;
+      --search-result-secondary: #888;
+      --ctx-bg: #1e1e3a;
+      --ctx-border: #555;
+      --ctx-text: #ccc;
+      --ctx-hover-bg: #2a2a4a;
+      --ctx-hover-text: #fff;
+      --ctx-shortcut-text: #666;
+      --ctx-shortcut-bg: rgba(255,255,255,0.06);
+      --ctx-shortcut-border: #555;
+      --pulse-glow: #ffaa00;
+      --help-strong: #ddd;
+    }
+    [data-theme="light"] {
+      --body-bg: #f5f5f5;
+      --body-text: #333;
+      --toolbar-bg: #e8e8f0;
+      --toolbar-border: #ccc;
+      --btn-bg: #ddd;
+      --btn-text: #444;
+      --btn-border: #bbb;
+      --btn-hover-bg: #ccc;
+      --btn-hover-text: #222;
+      --title-text: #5555aa;
+      --stats-text: #888;
+      --panel-bg: #ffffff;
+      --panel-border: #ccc;
+      --panel-text: #444;
+      --input-bg: #fff;
+      --input-text: #333;
+      --input-border: #bbb;
+      --input-focus-border: #5555aa;
+      --legend-separator: #ddd;
+      --kbd-text: #666;
+      --kbd-bg: rgba(0,0,0,0.05);
+      --kbd-border: #bbb;
+      --node-source: #2d6a4f;
+      --node-target: #a4243b;
+      --node-instrumented: #7a6b2a;
+      --node-fill: #e0e0e0;
+      --node-border: #888888;
+      --node-text: #222;
+      --edge-direct: #666666;
+      --edge-static-method: #3a7abf;
+      --edge-di-default: #8a6a9a;
+      --edge-instrument-wrapper: #888888;
+      --edge-re-export: #b8a040;
+      --edge-backedge: #c0392b;
+      --cluster-border: #aaaaaa;
+      --cluster-label: #666666;
+      --cluster-fill: rgba(200,200,220,0.2);
+      --tooltip-bg: #ffffff;
+      --tooltip-text: #333;
+      --tooltip-border: #ccc;
+      --source-bg: #ffffff;
+      --source-header-bg: #e8e8f0;
+      --source-header-text: #5555aa;
+      --source-header-border: #ccc;
+      --source-link: #3a7abf;
+      --source-close: #888;
+      --source-sig-bg: rgba(0,0,0,0.03);
+      --source-sig-border: #ccc;
+      --source-sig-text: #555;
+      --source-linenum: #999;
+      --source-highlight: rgba(100,130,200,0.1);
+      --source-desc-bg: rgba(0,0,0,0.03);
+      --source-desc-border: #3a7abf;
+      --source-desc-text: #555;
+      --search-bg: #ffffff;
+      --search-border: #ccc;
+      --search-input-bg: #fff;
+      --search-input-text: #333;
+      --search-input-border: #ccc;
+      --search-result-text: #333;
+      --search-result-hover: #e8e8f0;
+      --search-result-secondary: #888;
+      --ctx-bg: #ffffff;
+      --ctx-border: #ccc;
+      --ctx-text: #444;
+      --ctx-hover-bg: #e8e8f0;
+      --ctx-hover-text: #222;
+      --ctx-shortcut-text: #999;
+      --ctx-shortcut-bg: rgba(0,0,0,0.05);
+      --ctx-shortcut-border: #ccc;
+      --pulse-glow: #ff8800;
+      --help-strong: #333;
+    }
+
+    /* ── Base ─────────────────────────────────────────────────────────────── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--body-bg);
+      color: var(--body-text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Toolbar */
+    #toolbar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--toolbar-bg);
+      border-bottom: 1px solid var(--toolbar-border);
+      z-index: 10;
+    }
+    #toolbar button {
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border: 1px solid var(--btn-border);
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #toolbar button:hover { background: var(--btn-hover-bg); color: var(--btn-hover-text); }
+    #toolbar .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--title-text);
+      margin-right: auto;
+    }
+
+    /* Graph container */
+    #graph-container {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Input panel (dev mode) */
+    #input-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px;
+      height: 100%;
+    }
+    #input-panel h2 {
+      color: var(--title-text);
+      font-size: 20px;
+      font-weight: 600;
+    }
+    #input-panel p {
+      color: var(--stats-text);
+      font-size: 13px;
+      max-width: 500px;
+      text-align: center;
+    }
+    #json-input {
+      width: 600px;
+      height: 300px;
+      background: var(--input-bg);
+      color: var(--input-text);
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      padding: 12px;
+      font: 12px monospace;
+      resize: vertical;
+    }
+    #json-input:focus { border-color: var(--input-focus-border); outline: none; }
+    .input-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .input-row button, .input-row label {
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border: 1px solid var(--btn-border);
+      padding: 8px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .input-row button:hover, .input-row label:hover {
+      background: var(--btn-hover-bg);
+      color: var(--btn-hover-text);
+    }
+    #file-input { display: none; }
+    #error-msg {
+      display: none;
+      color: var(--edge-backedge);
+      font-size: 13px;
+      padding: 8px 16px;
+      background: rgba(217,83,79,0.1);
+      border-radius: 4px;
+    }
+
+    /* Legend */
+    #legend-panel {
+      display: none;
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 11px;
+      z-index: 20;
+      min-width: 200px;
+    }
+    #legend-panel h4 {
+      color: var(--title-text);
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      color: var(--panel-text);
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .legend-line {
+      width: 24px;
+      height: 2px;
+      flex-shrink: 0;
+    }
+    kbd {
+      font-size: 10px;
+      color: var(--kbd-text);
+      background: var(--kbd-bg);
+      border: 1px solid var(--kbd-border);
+      border-radius: 3px;
+      padding: 0 4px;
+      font-family: inherit;
+      line-height: 1.4;
+    }
+    #toolbar kbd {
+      margin-left: 6px;
+    }
+
+    /* Help panel */
+    #help-panel strong { color: var(--help-strong); }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <span class="title">ts-callpath</span>
+    <span id="stats" style="color:var(--stats-text); font-size:11px;"></span>
+    <button id="fit-btn">Fit <kbd>F</kbd></button>
+    <button id="search-btn">Search <kbd>/</kbd></button>
+    <button id="legend-btn">Legend <kbd>L</kbd></button>
+    <button id="direction-btn" onclick="window.__toggleDirection()">Layout: LR <kbd>R</kbd></button>
+    <button id="collapse-all-btn">Collapse All <kbd>C</kbd></button>
+    <button id="expand-all-btn">Expand All <kbd>E</kbd></button>
+    <button id="show-hidden-btn" style="display:none;">Show Hidden (0)</button>
+    <button id="exit-focus-btn" style="display:none;">Exit Focus <kbd>Esc</kbd></button>
+    <button id="theme-btn">Theme <kbd>T</kbd></button>
+    <button id="help-btn">? <kbd>H</kbd></button>
+  </div>
+
+  <div id="help-panel" style="display:none; position:fixed; top:60px; right:16px; background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:6px; padding:16px 20px; font-size:11px; z-index:20; min-width:280px; max-width:340px; color:var(--panel-text);">
+    <h4 style="color:var(--title-text); margin-bottom:6px; font-size:14px;">ts-callpath Viewer</h4>
+    <p style="margin-bottom:10px; line-height:1.5;">Visualises call paths between TypeScript functions. Nodes are functions, edges are calls, and clusters group functions by file.</p>
+    <h4 style="color:var(--title-text); margin-bottom:6px; font-size:12px;">Interactions</h4>
+    <div style="margin-bottom:3px;"><strong>Click</strong> a node to highlight its connected paths</div>
+    <div style="margin-bottom:3px;"><strong>Double-click</strong> a node to view its source code</div>
+    <div style="margin-bottom:3px;"><strong>Right-click</strong> a node or cluster for the context menu</div>
+    <div style="margin-bottom:8px;"><strong>Click a cluster</strong> to collapse/expand its functions</div>
+    <h4 style="color:var(--title-text); margin-bottom:6px; font-size:12px;">Keyboard Shortcuts</h4>
+    <div style="margin-bottom:3px;"><kbd>F</kbd> Fit to view</div>
+    <div style="margin-bottom:3px;"><kbd>L</kbd> Toggle legend</div>
+    <div style="margin-bottom:3px;"><kbd>C</kbd> Collapse all</div>
+    <div style="margin-bottom:3px;"><kbd>E</kbd> Expand all</div>
+    <div style="margin-bottom:3px;"><kbd>R</kbd> Toggle layout direction</div>
+    <div style="margin-bottom:3px;"><kbd>T</kbd> Cycle theme (system / light / dark)</div>
+    <div style="margin-bottom:3px;"><kbd>H</kbd> Toggle this help panel</div>
+    <div style="margin-bottom:3px;"><kbd>/</kbd> or <kbd>&#8984;K</kbd> Search</div>
+    <div style="margin-bottom:3px;"><kbd>Esc</kbd> Exit focus / close panels</div>
+  </div>
+
+  <div id="graph-container">
+    <div id="input-panel">
+      <h2>ts-callpath Visualizer</h2>
+      <p>Paste the JSON output from <code>ts-callpath --json</code> below, or drop a JSON file.</p>
+      <textarea id="json-input" placeholder='{"nodes": [...], "edges": [...]}'></textarea>
+      <div id="error-msg"></div>
+      <div class="input-row">
+        <button id="load-btn">Visualize</button>
+        <label for="file-input">Load File</label>
+        <input type="file" id="file-input" accept=".json">
+      </div>
+    </div>
+  </div>
+
+  <div id="legend-panel">
+    <h4>Legend</h4>
+    <div class="legend-item"><span class="legend-swatch" style="background:var(--node-source)"></span> Source</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:var(--node-target)"></span> Target</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:var(--node-instrumented)"></span> Instrumented</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:var(--node-fill);border:1px solid var(--node-border)"></span> Regular</div>
+    <hr style="border-color:var(--legend-separator);margin:6px 0">
+    <div class="legend-item"><span class="legend-line" style="background:var(--edge-direct)"></span> Direct call</div>
+    <div class="legend-item"><span class="legend-line" style="background:var(--edge-static-method)"></span> Static method</div>
+    <div class="legend-item"><span class="legend-line" style="background:var(--edge-di-default);border-top:2px dashed var(--edge-di-default);height:0"></span> DI default</div>
+    <div class="legend-item"><span class="legend-line" style="background:var(--edge-instrument-wrapper);border-top:2px dotted var(--edge-instrument-wrapper);height:0"></span> Instrument wrapper</div>
+    <div class="legend-item"><span class="legend-line" style="background:var(--edge-re-export);border-top:2px dotted var(--edge-re-export);height:0"></span> Re-export</div>
+    <div class="legend-item"><span class="legend-line" style="background:var(--edge-backedge);border-top:2px dashed var(--edge-backedge);height:0"></span> Backedge (cycle)</div>
+  </div>
+
+  <!-- INLINE_DATA -->
+  <script src="dist/bundle.js"></script>
+</body>
+</html>
