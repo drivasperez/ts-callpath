@@ -103,6 +103,7 @@ program
   .option("--max-nodes <n>", "Node limit", "500")
   .option("--root <dir>", "Repo root directory")
   .option("-o, --output <file>", "Write output to file (default: stdout)")
+  .option("--tsconfig <path>", "Path to tsconfig.json (auto-detected if omitted)")
   .option("--verbose", "Show progress on stderr", false)
   .option("--json", "Output JSON instead of DOT", false)
   .option("--html", "Output self-contained HTML visualizer", false)
@@ -122,6 +123,7 @@ program
         maxNodes: string;
         root?: string;
         output?: string;
+        tsconfig?: string;
         verbose: boolean;
         json: boolean;
         html: boolean;
@@ -155,7 +157,10 @@ program
       // Parse source spec
       const sourceSpecs = parseUserFunctionSpecs(sourceSpec, repoRoot);
 
-      const resolver = new Resolver(repoRoot, opts.verbose);
+      const resolver = new Resolver(repoRoot, {
+        verbose: opts.verbose,
+        tsconfigPath: opts.tsconfig ? path.resolve(opts.tsconfig) : undefined,
+      });
 
       // Resolve source specs
       const sourceIds = resolveSpecs(sourceSpecs, resolver);

@@ -11,30 +11,49 @@ import type {
 } from "./types.js";
 import { makeFunctionId } from "./types.js";
 import { parseFile } from "./parser.js";
-import { WorkspaceResolver } from "./workspaceResolver.js";
 
-const tsCompilerOptions: ts.CompilerOptions = {
-  moduleResolution: ts.ModuleResolutionKind.Node10,
-  target: ts.ScriptTarget.ESNext,
-  esModuleInterop: true,
-};
-
-const tsModuleResolutionHost: ts.ModuleResolutionHost = {
-  fileExists: (p) => fs.existsSync(p),
-  readFile: (p) => fs.readFileSync(p, "utf-8"),
-};
+export interface ResolverOptions {
+  verbose?: boolean;
+  tsconfigPath?: string;
+}
 
 export class Resolver {
   private fileCache = new Map<string, ParsedFile>();
-  private workspaceResolver: WorkspaceResolver;
   private verbose: boolean;
+  private compilerOptions: ts.CompilerOptions;
 
   constructor(
     private repoRoot: string,
-    verbose: boolean = false,
+    opts?: ResolverOptions,
   ) {
-    this.workspaceResolver = new WorkspaceResolver(repoRoot);
-    this.verbose = verbose;
+    this.verbose = opts?.verbose ?? false;
+    this.compilerOptions = this.loadCompilerOptions(opts?.tsconfigPath);
+  }
+
+  private loadCompilerOptions(tsconfigPath?: string): ts.CompilerOptions {
+    const configPath = tsconfigPath ?? ts.findConfigFile(this.repoRoot, ts.sys.fileExists);
+
+    if (configPath) {
+      const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+      if (!configFile.error) {
+        const parsed = ts.parseJsonConfigFileContent(
+          configFile.config,
+          ts.sys,
+          path.dirname(configPath),
+        );
+        if (this.verbose) {
+          process.stderr.write(`  using tsconfig: ${configPath}\n`);
+        }
+        return parsed.options;
+      }
+    }
+
+    // Fallback defaults when no tsconfig is found
+    return {
+      moduleResolution: ts.ModuleResolutionKind.Node10,
+      target: ts.ScriptTarget.ESNext,
+      esModuleInterop: true,
+    };
   }
 
   /**
@@ -65,24 +84,30 @@ export class Resolver {
    * Resolve a module specifier from a given source file to an absolute file path.
    */
   resolveModule(specifier: string, fromFile: string): string | null {
-    // 1. Package specifiers (e.g. @watershed/*)
-    if (specifier.startsWith("@watershed/") || specifier.startsWith("@watershed-")) {
-      const resolved = this.workspaceResolver.resolve(specifier);
-      if (resolved) return resolved;
+    // 1. Unified resolution via ts.resolveModuleName (handles paths, baseUrl, relative, etc.)
+    const result = ts.resolveModuleName(specifier, fromFile, this.compilerOptions, ts.sys);
+
+    if (result.resolvedModule) {
+      const resolved = result.resolvedModule;
+
+      // Accept in-project (non-external) modules directly
+      if (!resolved.isExternalLibraryImport) {
+        return resolved.resolvedFileName;
+      }
+
+      // For external hits, check if they're actually workspace symlinks
+      const realPath = ts.sys.realpath?.(resolved.resolvedFileName);
+      if (
+        realPath &&
+        realPath.startsWith(this.repoRoot) &&
+        !realPath.slice(this.repoRoot.length).includes("node_modules")
+      ) {
+        return realPath;
+      }
     }
 
-    // 2. Relative paths
+    // 2. Fallback: manual resolution for relative paths as safety net
     if (specifier.startsWith(".")) {
-      const result = ts.resolveModuleName(
-        specifier,
-        fromFile,
-        tsCompilerOptions,
-        tsModuleResolutionHost,
-      );
-      if (result.resolvedModule) {
-        return result.resolvedModule.resolvedFileName;
-      }
-      // Fallback: manual resolution for .ts/.tsx files
       const dir = path.dirname(fromFile);
       const basePath = path.resolve(dir, specifier);
       const extensions = [".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx"];
@@ -90,14 +115,11 @@ export class Resolver {
         const candidate = basePath + ext;
         if (fs.existsSync(candidate)) return candidate;
       }
-      // Check if basePath itself exists (has extension already)
       if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
         return basePath;
       }
-      return null;
     }
 
-    // 3. Other absolute or node_modules — skip
     return null;
   }
 
