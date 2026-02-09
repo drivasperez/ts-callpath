@@ -278,3 +278,172 @@ export function main() {
     expect(sliced.edges.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("integration: tsconfig paths resolution", () => {
+  let tmpDir: string;
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-callpath-paths-test-"));
+
+    // tsconfig.json with paths alias
+    fs.writeFileSync(
+      path.join(tmpDir, "tsconfig.json"),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            baseUrl: ".",
+            paths: {
+              "@mylib/*": ["lib/*"],
+            },
+            target: "ESNext",
+            moduleResolution: "Node10",
+            esModuleInterop: true,
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    // lib/utils.ts: the aliased module
+    fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "lib", "utils.ts"),
+      `export function doWork(input: string) {
+  return input.toUpperCase();
+}
+`,
+    );
+
+    // app.ts: imports via @mylib/utils alias
+    fs.writeFileSync(
+      path.join(tmpDir, "app.ts"),
+      `import { doWork } from '@mylib/utils';
+
+export function main() {
+  return doWork("hello");
+}
+`,
+    );
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resolves @mylib/utils via tsconfig paths", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "app.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodeNames = Array.from(graph.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("main");
+    expect(nodeNames).toContain("doWork");
+  });
+
+  it("slices path from main to doWork via alias", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "app.ts"), "main");
+    const targetId = makeFunctionId(path.join(tmpDir, "lib", "utils.ts"), "doWork");
+
+    const fullGraph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const sliced = sliceGraph(fullGraph, [sourceId], [targetId]);
+    const nodeNames = Array.from(sliced.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("main");
+    expect(nodeNames).toContain("doWork");
+    expect(sliced.edges.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("integration: tsconfig baseUrl resolution", () => {
+  let tmpDir: string;
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-callpath-baseurl-test-"));
+
+    // tsconfig.json with baseUrl
+    fs.writeFileSync(
+      path.join(tmpDir, "tsconfig.json"),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            baseUrl: "./src",
+            target: "ESNext",
+            moduleResolution: "Node10",
+            esModuleInterop: true,
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    // src/utils/helper.ts
+    fs.mkdirSync(path.join(tmpDir, "src", "utils"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "src", "utils", "helper.ts"),
+      `export function helper(x: number) {
+  return x * 2;
+}
+`,
+    );
+
+    // src/app.ts: imports via baseUrl-relative path
+    fs.writeFileSync(
+      path.join(tmpDir, "src", "app.ts"),
+      `import { helper } from 'utils/helper';
+
+export function main() {
+  return helper(42);
+}
+`,
+    );
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resolves utils/helper via tsconfig baseUrl", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "src", "app.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodeNames = Array.from(graph.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("main");
+    expect(nodeNames).toContain("helper");
+  });
+
+  it("slices path from main to helper via baseUrl", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "src", "app.ts"), "main");
+    const targetId = makeFunctionId(path.join(tmpDir, "src", "utils", "helper.ts"), "helper");
+
+    const fullGraph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const sliced = sliceGraph(fullGraph, [sourceId], [targetId]);
+    const nodeNames = Array.from(sliced.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("main");
+    expect(nodeNames).toContain("helper");
+    expect(sliced.edges.length).toBeGreaterThanOrEqual(1);
+  });
+});
