@@ -1,33 +1,28 @@
-import { describe, it, expect } from 'vitest';
-import {
-  createEmptyGraph,
-  addNode,
-  addEdge,
-  makeFunctionId,
-} from '../types.js';
-import { sliceGraph, mergeGraphs } from '../graph.js';
-import type { FunctionNode, CallEdge } from '../types.js';
+import { describe, it, expect } from "vitest";
+import { createEmptyGraph, addNode, addEdge } from "../types.js";
+import { sliceGraph, mergeGraphs } from "../graph.js";
+import type { FunctionNode, CallEdge } from "../types.js";
 
 function makeNode(id: string, line = 1): FunctionNode {
-  const [filePath, qualifiedName] = id.split('::');
+  const [filePath, qualifiedName] = id.split("::");
   return { id, filePath, qualifiedName, line, isInstrumented: false };
 }
 
 function makeEdge(callerId: string, calleeId: string, line = 1): CallEdge {
-  return { callerId, calleeId, kind: 'direct', callLine: line };
+  return { callerId, calleeId, kind: "direct", callLine: line };
 }
 
-describe('sliceGraph', () => {
-  it('keeps only nodes on paths from source to target (diamond)', () => {
+describe("sliceGraph", () => {
+  it("keeps only nodes on paths from source to target (diamond)", () => {
     // A → B → D
     // A → C → D
     // B → E (dead end, not on path to D)
     const graph = createEmptyGraph();
-    const A = 'f.ts::A';
-    const B = 'f.ts::B';
-    const C = 'f.ts::C';
-    const D = 'f.ts::D';
-    const E = 'f.ts::E';
+    const A = "f.ts::A";
+    const B = "f.ts::B";
+    const C = "f.ts::C";
+    const D = "f.ts::D";
+    const E = "f.ts::E";
 
     addNode(graph, makeNode(A));
     addNode(graph, makeNode(B));
@@ -53,11 +48,11 @@ describe('sliceGraph', () => {
     expect(sliced.edges).toHaveLength(4);
   });
 
-  it('returns empty graph when target is unreachable', () => {
+  it("returns empty graph when target is unreachable", () => {
     const graph = createEmptyGraph();
-    const A = 'f.ts::A';
-    const B = 'f.ts::B';
-    const C = 'f.ts::C';
+    const A = "f.ts::A";
+    const B = "f.ts::B";
+    const C = "f.ts::C";
 
     addNode(graph, makeNode(A));
     addNode(graph, makeNode(B));
@@ -72,11 +67,11 @@ describe('sliceGraph', () => {
     expect(sliced.edges).toHaveLength(0);
   });
 
-  it('keeps all nodes on a linear chain', () => {
+  it("keeps all nodes on a linear chain", () => {
     const graph = createEmptyGraph();
-    const A = 'f.ts::A';
-    const B = 'f.ts::B';
-    const C = 'f.ts::C';
+    const A = "f.ts::A";
+    const B = "f.ts::B";
+    const C = "f.ts::C";
 
     addNode(graph, makeNode(A));
     addNode(graph, makeNode(B));
@@ -94,9 +89,9 @@ describe('sliceGraph', () => {
     expect(sliced.edges).toHaveLength(2);
   });
 
-  it('handles source == target (single node)', () => {
+  it("handles source == target (single node)", () => {
     const graph = createEmptyGraph();
-    const A = 'f.ts::A';
+    const A = "f.ts::A";
     addNode(graph, makeNode(A));
 
     const sliced = sliceGraph(graph, [A], [A]);
@@ -106,16 +101,16 @@ describe('sliceGraph', () => {
     expect(sliced.edges).toHaveLength(0);
   });
 
-  it('multi-source: union of paths from two sources to one target', () => {
+  it("multi-source: union of paths from two sources to one target", () => {
     // S1 → M → T
     // S2 → T
     // S1 → X (dead end)
     const graph = createEmptyGraph();
-    const S1 = 'f.ts::S1';
-    const S2 = 'f.ts::S2';
-    const M = 'f.ts::M';
-    const T = 'f.ts::T';
-    const X = 'f.ts::X';
+    const S1 = "f.ts::S1";
+    const S2 = "f.ts::S2";
+    const M = "f.ts::M";
+    const T = "f.ts::T";
+    const X = "f.ts::X";
 
     addNode(graph, makeNode(S1));
     addNode(graph, makeNode(S2));
@@ -138,17 +133,17 @@ describe('sliceGraph', () => {
     expect(sliced.edges).toHaveLength(3); // S1→M, M→T, S2→T
   });
 
-  it('multi-target: union of paths from one source to two targets', () => {
+  it("multi-target: union of paths from one source to two targets", () => {
     // A → B → T1
     // A → C → T2
     // A → D (dead end)
     const graph = createEmptyGraph();
-    const A = 'f.ts::A';
-    const B = 'f.ts::B';
-    const C = 'f.ts::C';
-    const T1 = 'f.ts::T1';
-    const T2 = 'f.ts::T2';
-    const D = 'f.ts::D';
+    const A = "f.ts::A";
+    const B = "f.ts::B";
+    const C = "f.ts::C";
+    const T1 = "f.ts::T1";
+    const T2 = "f.ts::T2";
+    const D = "f.ts::D";
 
     addNode(graph, makeNode(A));
     addNode(graph, makeNode(B));
@@ -175,17 +170,17 @@ describe('sliceGraph', () => {
   });
 });
 
-describe('mergeGraphs', () => {
-  it('merges two disjoint graphs', () => {
+describe("mergeGraphs", () => {
+  it("merges two disjoint graphs", () => {
     const g1 = createEmptyGraph();
-    addNode(g1, makeNode('a.ts::A'));
-    addNode(g1, makeNode('a.ts::B'));
-    addEdge(g1, makeEdge('a.ts::A', 'a.ts::B'));
+    addNode(g1, makeNode("a.ts::A"));
+    addNode(g1, makeNode("a.ts::B"));
+    addEdge(g1, makeEdge("a.ts::A", "a.ts::B"));
 
     const g2 = createEmptyGraph();
-    addNode(g2, makeNode('b.ts::C'));
-    addNode(g2, makeNode('b.ts::D'));
-    addEdge(g2, makeEdge('b.ts::C', 'b.ts::D'));
+    addNode(g2, makeNode("b.ts::C"));
+    addNode(g2, makeNode("b.ts::D"));
+    addEdge(g2, makeEdge("b.ts::C", "b.ts::D"));
 
     const merged = mergeGraphs([g1, g2]);
 
@@ -193,18 +188,18 @@ describe('mergeGraphs', () => {
     expect(merged.edges).toHaveLength(2);
   });
 
-  it('deduplicates edges from overlapping graphs', () => {
+  it("deduplicates edges from overlapping graphs", () => {
     const g1 = createEmptyGraph();
-    addNode(g1, makeNode('a.ts::A'));
-    addNode(g1, makeNode('a.ts::B'));
-    addEdge(g1, makeEdge('a.ts::A', 'a.ts::B'));
+    addNode(g1, makeNode("a.ts::A"));
+    addNode(g1, makeNode("a.ts::B"));
+    addEdge(g1, makeEdge("a.ts::A", "a.ts::B"));
 
     const g2 = createEmptyGraph();
-    addNode(g2, makeNode('a.ts::A'));
-    addNode(g2, makeNode('a.ts::B'));
-    addNode(g2, makeNode('a.ts::C'));
-    addEdge(g2, makeEdge('a.ts::A', 'a.ts::B')); // duplicate
-    addEdge(g2, makeEdge('a.ts::B', 'a.ts::C'));
+    addNode(g2, makeNode("a.ts::A"));
+    addNode(g2, makeNode("a.ts::B"));
+    addNode(g2, makeNode("a.ts::C"));
+    addEdge(g2, makeEdge("a.ts::A", "a.ts::B")); // duplicate
+    addEdge(g2, makeEdge("a.ts::B", "a.ts::C"));
 
     const merged = mergeGraphs([g1, g2]);
 

@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Maps @watershed/* package specifiers to filesystem paths.
@@ -14,21 +14,18 @@ export class WorkspaceResolver {
   }
 
   private buildPackageMap(): void {
-    const workspacesDir = path.join(this.repoRoot, 'workspaces');
+    const workspacesDir = path.join(this.repoRoot, "workspaces");
     if (!fs.existsSync(workspacesDir)) return;
 
     const entries = fs.readdirSync(workspacesDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      const pkgJsonPath = path.join(workspacesDir, entry.name, 'package.json');
+      const pkgJsonPath = path.join(workspacesDir, entry.name, "package.json");
       if (!fs.existsSync(pkgJsonPath)) continue;
       try {
-        const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+        const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
         if (pkgJson.name) {
-          this.packageDirs.set(
-            pkgJson.name,
-            path.join(workspacesDir, entry.name)
-          );
+          this.packageDirs.set(pkgJson.name, path.join(workspacesDir, entry.name));
         }
       } catch {
         // skip malformed package.json
@@ -44,7 +41,7 @@ export class WorkspaceResolver {
   resolve(specifier: string): string | null {
     // Find the matching package prefix
     // Try progressively shorter prefixes: @watershed/domain/service → @watershed/domain
-    const parts = specifier.split('/');
+    const parts = specifier.split("/");
     // @watershed packages always have scope + name, so minimum 2 parts
     if (parts.length < 2) return null;
 
@@ -53,10 +50,10 @@ export class WorkspaceResolver {
     const pkgDir = this.packageDirs.get(pkgName);
     if (!pkgDir) return null;
 
-    const subpath = parts.slice(2).join('/');
+    const subpath = parts.slice(2).join("/");
     if (!subpath) {
       // Importing the package root — look for index file
-      return this.resolveFile(path.join(pkgDir, 'index'));
+      return this.resolveFile(path.join(pkgDir, "index"));
     }
 
     return this.resolveFile(path.join(pkgDir, subpath));
@@ -71,7 +68,7 @@ export class WorkspaceResolver {
       return basePath;
     }
 
-    const extensions = ['.ts', '.tsx', '.js', '.jsx'];
+    const extensions = [".ts", ".tsx", ".js", ".jsx"];
     for (const ext of extensions) {
       const candidate = basePath + ext;
       if (fs.existsSync(candidate)) return candidate;
@@ -79,7 +76,7 @@ export class WorkspaceResolver {
 
     // Try index files in directory
     for (const ext of extensions) {
-      const candidate = path.join(basePath, 'index' + ext);
+      const candidate = path.join(basePath, "index" + ext);
       if (fs.existsSync(candidate)) return candidate;
     }
 

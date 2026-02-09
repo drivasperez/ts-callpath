@@ -1,21 +1,21 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import { execSync } from 'child_process';
-import { makeFunctionId } from './types.js';
-import type { FunctionId } from './types.js';
-import { Resolver } from './resolver.js';
-import { forwardBfs, sliceGraph, mergeGraphs } from './graph.js';
-import { renderDot, renderJson } from './dotRenderer.js';
-import { renderHtml } from './htmlRenderer.js';
-import { loadCodeowners } from './codeowners.js';
+import { Command } from "commander";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { execSync } from "child_process";
+import { makeFunctionId } from "./types.js";
+import type { FunctionId } from "./types.js";
+import { Resolver } from "./resolver.js";
+import { forwardBfs, sliceGraph, mergeGraphs } from "./graph.js";
+import { renderDot, renderJson } from "./dotRenderer.js";
+import { renderHtml } from "./htmlRenderer.js";
+import { loadCodeowners } from "./codeowners.js";
 
 function findGitRoot(): string {
   try {
-    return execSync('git rev-parse --show-toplevel', {
-      encoding: 'utf-8',
+    return execSync("git rev-parse --show-toplevel", {
+      encoding: "utf-8",
     }).trim();
   } catch {
     return process.cwd();
@@ -32,9 +32,9 @@ function findGitRoot(): string {
  */
 function parseUserFunctionSpecs(
   spec: string,
-  repoRoot: string
+  repoRoot: string,
 ): { filePath: string; qualifiedNames: string[] } {
-  const sep = spec.indexOf('::');
+  const sep = spec.indexOf("::");
 
   let rawPath: string;
   let qualifiedNames: string[];
@@ -46,7 +46,7 @@ function parseUserFunctionSpecs(
   } else {
     rawPath = spec.slice(0, sep);
     const symbolPart = spec.slice(sep + 2);
-    qualifiedNames = symbolPart.split('|').filter(Boolean);
+    qualifiedNames = symbolPart.split("|").filter(Boolean);
   }
 
   let filePath = rawPath;
@@ -66,7 +66,7 @@ function parseUserFunctionSpecs(
  */
 function resolveSpecs(
   specs: { filePath: string; qualifiedNames: string[] },
-  resolver: Resolver
+  resolver: Resolver,
 ): FunctionId[] {
   const file = resolver.getFile(specs.filePath);
   if (!file) {
@@ -76,9 +76,7 @@ function resolveSpecs(
 
   // Empty qualifiedNames = all functions in the file
   if (specs.qualifiedNames.length === 0) {
-    return file.functions.map((f) =>
-      makeFunctionId(specs.filePath, f.qualifiedName)
-    );
+    return file.functions.map((f) => makeFunctionId(specs.filePath, f.qualifiedName));
   }
 
   // Resolve each named symbol (through bindings)
@@ -88,9 +86,7 @@ function resolveSpecs(
     if (resolved) {
       ids.push(makeFunctionId(specs.filePath, resolved.qualifiedName));
     } else {
-      process.stderr.write(
-        `Warning: "${name}" not found in ${specs.filePath}\n`
-      );
+      process.stderr.write(`Warning: "${name}" not found in ${specs.filePath}\n`);
     }
   }
   return ids;
@@ -99,30 +95,24 @@ function resolveSpecs(
 const program = new Command();
 
 program
-  .name('ts-callpath')
-  .description('Find call paths between two TypeScript functions')
-  .argument(
-    '<source>',
-    'Source: file.ts (all symbols), file.ts::func, or file.ts::a|b|c'
-  )
-  .argument(
-    '[target]',
-    'Target: file.ts (all symbols), file.ts::func, or file.ts::a|b|c'
-  )
-  .option('--max-depth <n>', 'BFS depth limit', '20')
-  .option('--max-nodes <n>', 'Node limit', '500')
-  .option('--root <dir>', 'Repo root directory')
-  .option('-o, --output <file>', 'Write output to file (default: stdout)')
-  .option('--verbose', 'Show progress on stderr', false)
-  .option('--json', 'Output JSON instead of DOT', false)
-  .option('--html', 'Output self-contained HTML visualizer', false)
+  .name("ts-callpath")
+  .description("Find call paths between two TypeScript functions")
+  .argument("<source>", "Source: file.ts (all symbols), file.ts::func, or file.ts::a|b|c")
+  .argument("[target]", "Target: file.ts (all symbols), file.ts::func, or file.ts::a|b|c")
+  .option("--max-depth <n>", "BFS depth limit", "20")
+  .option("--max-nodes <n>", "Node limit", "500")
+  .option("--root <dir>", "Repo root directory")
+  .option("-o, --output <file>", "Write output to file (default: stdout)")
+  .option("--verbose", "Show progress on stderr", false)
+  .option("--json", "Output JSON instead of DOT", false)
+  .option("--html", "Output self-contained HTML visualizer", false)
+  .option("--editor <name>", "Editor for open-in-editor links (cursor, vscode, zed)", "cursor")
+  .option("--open", "Write to a temp file and open it", false)
   .option(
-    '--editor <name>',
-    'Editor for open-in-editor links (cursor, vscode, zed)',
-    'cursor'
+    "--full",
+    "Output full forward BFS graph (no slicing; implied when target is omitted)",
+    false,
   )
-  .option('--open', 'Write to a temp file and open it', false)
-  .option('--full', 'Output full forward BFS graph (no slicing; implied when target is omitted)', false)
   .action(
     (
       sourceSpec: string,
@@ -138,7 +128,7 @@ program
         editor: string;
         open: boolean;
         full: boolean;
-      }
+      },
     ) => {
       const hasTarget = targetSpec != null;
       const impliedFull = opts.full || !hasTarget;
@@ -153,7 +143,7 @@ program
         maxNodes < 0
       ) {
         process.stderr.write(
-          `Error: --max-depth and --max-nodes must be non-negative integers (got depth="${opts.maxDepth}", nodes="${opts.maxNodes}")\n`
+          `Error: --max-depth and --max-nodes must be non-negative integers (got depth="${opts.maxDepth}", nodes="${opts.maxNodes}")\n`,
         );
         process.exit(1);
       }
@@ -171,9 +161,7 @@ program
       const sourceIds = resolveSpecs(sourceSpecs, resolver);
 
       if (sourceIds.length === 0) {
-        process.stderr.write(
-          `Error: no functions resolved for source "${sourceSpec}"\n`
-        );
+        process.stderr.write(`Error: no functions resolved for source "${sourceSpec}"\n`);
         process.exit(1);
       }
 
@@ -184,9 +172,7 @@ program
         targetIds = resolveSpecs(targetSpecs, resolver);
 
         if (targetIds.length === 0) {
-          process.stderr.write(
-            `Error: no functions resolved for target "${targetSpec}"\n`
-          );
+          process.stderr.write(`Error: no functions resolved for target "${targetSpec}"\n`);
           process.exit(1);
         }
       }
@@ -198,26 +184,23 @@ program
           process.stderr.write(`Target IDs (${targetIds.length}):\n`);
           for (const id of targetIds) process.stderr.write(`  ${id}\n`);
         }
-        process.stderr.write(
-          `Max depth: ${maxDepth}, Max nodes: ${maxNodes}\n`
-        );
-        process.stderr.write('\nBuilding call graph (forward BFS)...\n');
+        process.stderr.write(`Max depth: ${maxDepth}, Max nodes: ${maxNodes}\n`);
+        process.stderr.write("\nBuilding call graph (forward BFS)...\n");
       }
 
       const startTime = Date.now();
 
       // Forward BFS from each source, merge results
       const bfsGraphs = sourceIds.map((id) =>
-        forwardBfs(id, resolver, { maxDepth, maxNodes, verbose: opts.verbose })
+        forwardBfs(id, resolver, { maxDepth, maxNodes, verbose: opts.verbose }),
       );
-      const fullGraph =
-        bfsGraphs.length === 1 ? bfsGraphs[0] : mergeGraphs(bfsGraphs);
+      const fullGraph = bfsGraphs.length === 1 ? bfsGraphs[0] : mergeGraphs(bfsGraphs);
 
       const bfsTime = Date.now() - startTime;
 
       if (opts.verbose) {
         process.stderr.write(
-          `\nForward BFS complete: ${fullGraph.nodes.size} nodes, ${fullGraph.edges.length} edges (${bfsTime}ms)\n`
+          `\nForward BFS complete: ${fullGraph.nodes.size} nodes, ${fullGraph.edges.length} edges (${bfsTime}ms)\n`,
         );
       }
 
@@ -227,23 +210,19 @@ program
       // Check if any target was reached
       const anyTargetReached = hasTarget && targetIds.some((id) => fullGraph.nodes.has(id));
       if (hasTarget && !anyTargetReached && !impliedFull) {
+        process.stderr.write(`\nWarning: no target functions reached in BFS.\n`);
         process.stderr.write(
-          `\nWarning: no target functions reached in BFS.\n`
+          `  The targets may be unreachable from the sources within ${maxDepth} hops,\n`,
         );
         process.stderr.write(
-          `  The targets may be unreachable from the sources within ${maxDepth} hops,\n`
+          `  or the calls may go through unresolvable patterns (method calls on variables, etc.)\n`,
         );
         process.stderr.write(
-          `  or the calls may go through unresolvable patterns (method calls on variables, etc.)\n`
-        );
-        process.stderr.write(
-          `\nTip: try --full to see the full BFS graph, or --max-depth to increase depth.\n`
+          `\nTip: try --full to see the full BFS graph, or --max-depth to increase depth.\n`,
         );
 
         if (opts.verbose) {
-          process.stderr.write(
-            `\nOutputting full forward BFS graph instead.\n`
-          );
+          process.stderr.write(`\nOutputting full forward BFS graph instead.\n`);
         }
       }
 
@@ -251,15 +230,13 @@ program
       let outputGraph = fullGraph;
       if (!impliedFull && anyTargetReached) {
         if (opts.verbose) {
-          process.stderr.write('\nSlicing graph to source→target paths...\n');
+          process.stderr.write("\nSlicing graph to source→target paths...\n");
         }
-        const reachableTargets = targetIds.filter((id) =>
-          fullGraph.nodes.has(id)
-        );
+        const reachableTargets = targetIds.filter((id) => fullGraph.nodes.has(id));
         outputGraph = sliceGraph(fullGraph, sourceIds, reachableTargets);
         if (opts.verbose) {
           process.stderr.write(
-            `Sliced: ${outputGraph.nodes.size} nodes, ${outputGraph.edges.length} edges\n`
+            `Sliced: ${outputGraph.nodes.size} nodes, ${outputGraph.edges.length} edges\n`,
           );
         }
       }
@@ -285,7 +262,7 @@ program
       }
 
       if (opts.open) {
-        const ext = opts.html ? '.html' : opts.json ? '.json' : '.dot';
+        const ext = opts.html ? ".html" : opts.json ? ".json" : ".dot";
         const tmpFile = path.join(os.tmpdir(), `ts-callpath-${Date.now()}${ext}`);
         fs.writeFileSync(tmpFile, output);
         if (opts.verbose) {
@@ -298,14 +275,14 @@ program
           process.stderr.write(`Output written to ${opts.output}\n`);
         }
       } else {
-        process.stdout.write(output + '\n');
+        process.stdout.write(output + "\n");
       }
 
       const totalTime = Date.now() - startTime;
       if (opts.verbose) {
         process.stderr.write(`\nTotal time: ${totalTime}ms\n`);
       }
-    }
+    },
   );
 
 program.parse();

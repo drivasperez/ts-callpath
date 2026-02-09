@@ -1,5 +1,5 @@
-import ts from 'typescript';
-import * as fs from 'fs';
+import ts from "typescript";
+import * as fs from "fs";
 import type {
   ParsedFile,
   ParsedFunction,
@@ -7,11 +7,8 @@ import type {
   ImportInfo,
   ReExportInfo,
   DiDefaultMapping,
-} from './types.js';
-import {
-  unwrapVariableInitializer,
-  isInstrumentOwnMethodsInPlace,
-} from './wrapperUnwrap.js';
+} from "./types.js";
+import { unwrapVariableInitializer, isInstrumentOwnMethodsInPlace } from "./wrapperUnwrap.js";
 
 /**
  * Extract the description text from a JSDoc comment attached to a node.
@@ -22,13 +19,13 @@ function getJSDocDescription(node: ts.Node): string | undefined {
   if (!jsDocs || jsDocs.length === 0) return undefined;
   const jsDoc = jsDocs[0];
   if (!jsDoc.comment) return undefined;
-  if (typeof jsDoc.comment === 'string') return jsDoc.comment;
+  if (typeof jsDoc.comment === "string") return jsDoc.comment;
   // TS 4.3+ structured comments
   const parts: string[] = [];
   for (const part of jsDoc.comment) {
-    if ('text' in part) parts.push((part as any).text);
+    if ("text" in part) parts.push((part as any).text);
   }
-  return parts.join('') || undefined;
+  return parts.join("") || undefined;
 }
 
 /**
@@ -36,15 +33,14 @@ function getJSDocDescription(node: ts.Node): string | undefined {
  */
 function getFunctionSignature(
   node: ts.SignatureDeclaration,
-  sourceFile: ts.SourceFile
+  sourceFile: ts.SourceFile,
 ): string | undefined {
   if (!node.parameters) return undefined;
   const paramsStart = node.parameters.pos;
   const paramsEnd = node.parameters.end;
-  let sig =
-    '(' + sourceFile.text.substring(paramsStart, paramsEnd).trim() + ')';
+  let sig = "(" + sourceFile.text.substring(paramsStart, paramsEnd).trim() + ")";
   if (node.type) {
-    sig += ': ' + node.type.getText(sourceFile);
+    sig += ": " + node.type.getText(sourceFile);
   }
   return sig;
 }
@@ -54,7 +50,7 @@ function getFunctionSignature(
  * Extracts functions, call sites, imports, re-exports, DI defaults, and export mappings.
  */
 export function parseFile(filePath: string): ParsedFile {
-  const sourceText = fs.readFileSync(filePath, 'utf-8');
+  const sourceText = fs.readFileSync(filePath, "utf-8");
   return parseSource(filePath, sourceText);
 }
 
@@ -68,7 +64,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
     sourceText,
     ts.ScriptTarget.Latest,
     /* setParentNodes */ true,
-    ts.ScriptKind.TSX
+    ts.ScriptKind.TSX,
   );
 
   const functions: ParsedFunction[] = [];
@@ -97,7 +93,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
         if (clause.name) {
           imports.push({
             localName: clause.name.text,
-            importedName: 'default',
+            importedName: "default",
             moduleSpecifier: specifier,
             isNamespace: false,
           });
@@ -107,7 +103,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
           if (ts.isNamespaceImport(clause.namedBindings)) {
             imports.push({
               localName: clause.namedBindings.name.text,
-              importedName: '*',
+              importedName: "*",
               moduleSpecifier: specifier,
               isNamespace: true,
             });
@@ -115,9 +111,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
             for (const element of clause.namedBindings.elements) {
               imports.push({
                 localName: element.name.text,
-                importedName: element.propertyName
-                  ? element.propertyName.text
-                  : element.name.text,
+                importedName: element.propertyName ? element.propertyName.text : element.name.text,
                 moduleSpecifier: specifier,
                 isNamespace: false,
               });
@@ -152,9 +146,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
         // export { x, y } — local re-exports
         for (const element of stmt.exportClause.elements) {
           const exportedName = element.name.text;
-          const localName = element.propertyName
-            ? element.propertyName.text
-            : element.name.text;
+          const localName = element.propertyName ? element.propertyName.text : element.name.text;
           exportedNames.set(exportedName, localName);
         }
       }
@@ -184,7 +176,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
             unwrapped.innerFunction,
             unwrapped.isInstrumented,
             sourceFile,
-            getJSDocDescription(stmt)
+            getJSDocDescription(stmt),
           );
           functions.push(fn);
         }
@@ -196,7 +188,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
             objectLiteral,
             functions,
             objectPropertyBindings,
-            sourceFile
+            sourceFile,
           );
         }
       }
@@ -210,49 +202,29 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
       const isInstrumented = instrumentedClasses.has(className);
 
       for (const member of stmt.members) {
-        if (
-          ts.isMethodDeclaration(member) &&
-          member.name &&
-          ts.isIdentifier(member.name)
-        ) {
+        if (ts.isMethodDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
           const methodName = member.name.text;
           const qualifiedName = `${className}.${methodName}`;
-          const fn = extractFunction(
-            qualifiedName,
-            member,
-            sourceFile,
-            isInstrumented
-          );
+          const fn = extractFunction(qualifiedName, member, sourceFile, isInstrumented);
           functions.push(fn);
         }
 
         // Constructor
         if (ts.isConstructorDeclaration(member)) {
           const qualifiedName = `${className}.constructor`;
-          const fn = extractFunction(
-            qualifiedName,
-            member,
-            sourceFile,
-            isInstrumented
-          );
+          const fn = extractFunction(qualifiedName, member, sourceFile, isInstrumented);
           functions.push(fn);
         }
 
         // Getters and setters
         if (
-          (ts.isGetAccessorDeclaration(member) ||
-            ts.isSetAccessorDeclaration(member)) &&
+          (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member)) &&
           member.name &&
           ts.isIdentifier(member.name)
         ) {
-          const prefix = ts.isGetAccessorDeclaration(member) ? 'get ' : 'set ';
+          const prefix = ts.isGetAccessorDeclaration(member) ? "get " : "set ";
           const qualifiedName = `${className}.${prefix}${member.name.text}`;
-          const fn = extractFunction(
-            qualifiedName,
-            member,
-            sourceFile,
-            isInstrumented
-          );
+          const fn = extractFunction(qualifiedName, member, sourceFile, isInstrumented);
           functions.push(fn);
         }
 
@@ -271,7 +243,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
               unwrapped.innerFunction,
               unwrapped.isInstrumented || isInstrumented,
               sourceFile,
-              getJSDocDescription(member)
+              getJSDocDescription(member),
             );
             functions.push(fn);
           }
@@ -282,7 +254,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
     // Export assignment: export default function/class
     if (ts.isExportAssignment(stmt) && !stmt.isExportEquals) {
       if (ts.isIdentifier(stmt.expression)) {
-        exportedNames.set('default', stmt.expression.text);
+        exportedNames.set("default", stmt.expression.text);
       }
     }
   }
@@ -300,10 +272,9 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
   }
 
   if (moduleLevelCallSites.length > 0) {
-    const lastLine =
-      sourceFile.getLineAndCharacterOfPosition(sourceFile.getEnd()).line + 1;
+    const lastLine = sourceFile.getLineAndCharacterOfPosition(sourceFile.getEnd()).line + 1;
     functions.push({
-      qualifiedName: '<module>',
+      qualifiedName: "<module>",
       line: 1,
       endLine: lastLine,
       isInstrumented: false,
@@ -334,9 +305,7 @@ function hasExportModifier(node: ts.Node): boolean {
  * Unwrap an expression to an ObjectLiteralExpression, if it is one.
  * Handles: plain object literal, Object.freeze(obj), `as const`, `satisfies T`.
  */
-function unwrapToObjectLiteral(
-  expr: ts.Expression
-): ts.ObjectLiteralExpression | null {
+function unwrapToObjectLiteral(expr: ts.Expression): ts.ObjectLiteralExpression | null {
   // Unwrap type assertions: `expr as T`, `expr satisfies T`
   if (ts.isAsExpression(expr) || ts.isSatisfiesExpression(expr)) {
     return unwrapToObjectLiteral(expr.expression);
@@ -352,8 +321,8 @@ function unwrapToObjectLiteral(
     ts.isCallExpression(expr) &&
     ts.isPropertyAccessExpression(expr.expression) &&
     ts.isIdentifier(expr.expression.expression) &&
-    expr.expression.expression.text === 'Object' &&
-    expr.expression.name.text === 'freeze' &&
+    expr.expression.expression.text === "Object" &&
+    expr.expression.name.text === "freeze" &&
     expr.arguments.length === 1
   ) {
     return unwrapToObjectLiteral(expr.arguments[0]);
@@ -371,7 +340,7 @@ function processObjectLiteralProperties(
   objLiteral: ts.ObjectLiteralExpression,
   functions: ParsedFunction[],
   bindings: Map<string, string>,
-  sourceFile: ts.SourceFile
+  sourceFile: ts.SourceFile,
 ): void {
   for (const prop of objLiteral.properties) {
     // Skip spread assignments and computed properties
@@ -408,7 +377,7 @@ function processObjectLiteralProperties(
           init,
           false,
           sourceFile,
-          getJSDocDescription(prop)
+          getJSDocDescription(prop),
         );
         functions.push(fn);
         bindings.set(qualifiedName, qualifiedName);
@@ -435,13 +404,10 @@ function extractFunction(
     | ts.GetAccessorDeclaration
     | ts.SetAccessorDeclaration,
   sourceFile: ts.SourceFile,
-  isInstrumented: boolean = false
+  isInstrumented: boolean = false,
 ): ParsedFunction {
-  const line =
-    sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line +
-    1;
-  const endLine =
-    sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+  const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+  const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
   const callSites: CallSite[] = [];
   const diDefaults: DiDefaultMapping[] = [];
   const description = getJSDocDescription(node);
@@ -476,13 +442,10 @@ function extractFunctionFromExpression(
   node: ts.FunctionExpression | ts.ArrowFunction,
   isInstrumented: boolean,
   sourceFile: ts.SourceFile,
-  description?: string
+  description?: string,
 ): ParsedFunction {
-  const line =
-    sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line +
-    1;
-  const endLine =
-    sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+  const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+  const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
   const callSites: CallSite[] = [];
   const diDefaults: DiDefaultMapping[] = [];
   const signature = getFunctionSignature(node, sourceFile);
@@ -518,17 +481,13 @@ function extractFunctionFromExpression(
  */
 function extractDiDefaults(
   params: ts.NodeArray<ts.ParameterDeclaration>,
-  out: DiDefaultMapping[]
+  out: DiDefaultMapping[],
 ): void {
   for (const param of params) {
-    if (!param.initializer || !ts.isObjectLiteralExpression(param.initializer))
-      continue;
-    if (!ts.isIdentifier(param.name) && !ts.isObjectBindingPattern(param.name))
-      continue;
+    if (!param.initializer || !ts.isObjectLiteralExpression(param.initializer)) continue;
+    if (!ts.isIdentifier(param.name) && !ts.isObjectBindingPattern(param.name)) continue;
 
-    const paramName = ts.isIdentifier(param.name)
-      ? param.name.text
-      : '<destructured>';
+    const paramName = ts.isIdentifier(param.name) ? param.name.text : "<destructured>";
 
     for (const prop of param.initializer.properties) {
       if (!ts.isPropertyAssignment(prop)) continue;
@@ -555,11 +514,7 @@ function extractDiDefaults(
 /**
  * Recursively extract call sites from a block/statement.
  */
-function extractCallSites(
-  node: ts.Node,
-  out: CallSite[],
-  sourceFile: ts.SourceFile
-): void {
+function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceFile): void {
   // Don't descend into nested function/class declarations — they are separate scopes
   if (
     ts.isFunctionDeclaration(node) ||
@@ -604,7 +559,7 @@ function extractCallSites(
 function extractCallSitesFromExpression(
   node: ts.Expression,
   out: CallSite[],
-  sourceFile: ts.SourceFile
+  sourceFile: ts.SourceFile,
 ): void {
   extractCallSites(node, out, sourceFile);
 }
@@ -612,11 +567,9 @@ function extractCallSitesFromExpression(
 function extractCallSiteFromCallExpression(
   node: ts.CallExpression,
   out: CallSite[],
-  sourceFile: ts.SourceFile
+  sourceFile: ts.SourceFile,
 ): void {
-  const line =
-    sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line +
-    1;
+  const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 
   const expr = node.expression;
 

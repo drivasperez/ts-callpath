@@ -15,28 +15,28 @@ pnpm callpath -- <source> <target> [options]
 
 Both `<source>` and `<target>` accept three selector formats:
 
-| Format | Meaning |
-|---|---|
-| `path/to/file.ts` | All functions in the file |
-| `path/to/file.ts::funcName` | A single function |
+| Format                            | Meaning                          |
+| --------------------------------- | -------------------------------- |
+| `path/to/file.ts`                 | All functions in the file        |
+| `path/to/file.ts::funcName`       | A single function                |
 | `path/to/file.ts::a\|b\|C.method` | Pipe-separated list of functions |
 
 Paths are resolved relative to the repo root (auto-detected via `git`). Qualified names use `ClassName.methodName` for methods.
 
 ### Options
 
-| Flag | Default | Description |
-|---|---|---|
-| `--max-depth <n>` | `20` | Maximum BFS depth |
-| `--max-nodes <n>` | `500` | Maximum number of nodes to explore |
-| `--root <dir>` | git root | Override repo root directory |
-| `-o, --output <file>` | stdout | Write output to a file |
-| `--verbose` | off | Print progress info to stderr |
-| `--json` | off | Output JSON instead of DOT |
-| `--html` | off | Output self-contained HTML visualizer |
-| `--open` | off | Write to a temp file and open it |
-| `--editor <name>` | `cursor` | Editor for open-in-editor links (`cursor`, `vscode`, `zed`) |
-| `--full` | off | Output the full BFS graph without slicing |
+| Flag                  | Default  | Description                                                 |
+| --------------------- | -------- | ----------------------------------------------------------- |
+| `--max-depth <n>`     | `20`     | Maximum BFS depth                                           |
+| `--max-nodes <n>`     | `500`    | Maximum number of nodes to explore                          |
+| `--root <dir>`        | git root | Override repo root directory                                |
+| `-o, --output <file>` | stdout   | Write output to a file                                      |
+| `--verbose`           | off      | Print progress info to stderr                               |
+| `--json`              | off      | Output JSON instead of DOT                                  |
+| `--html`              | off      | Output self-contained HTML visualizer                       |
+| `--open`              | off      | Write to a temp file and open it                            |
+| `--editor <name>`     | `cursor` | Editor for open-in-editor links (`cursor`, `vscode`, `zed`) |
+| `--full`              | off      | Output the full BFS graph without slicing                   |
 
 ### Examples
 

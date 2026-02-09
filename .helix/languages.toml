@@ -1,0 +1,27 @@
+[language-server.oxlint]
+command = "npx"
+args = ["oxlint", "--lsp"]
+
+[[language]]
+name = "typescript"
+formatter = { command = "npx", args = ["oxfmt", "--stdin-filepath", "file.ts"] }
+auto-format = true
+language-servers = ["typescript-language-server", "oxlint"]
+
+[[language]]
+name = "javascript"
+formatter = { command = "npx", args = ["oxfmt", "--stdin-filepath", "file.js"] }
+auto-format = true
+language-servers = ["typescript-language-server", "oxlint"]
+
+[[language]]
+name = "tsx"
+formatter = { command = "npx", args = ["oxfmt", "--stdin-filepath", "file.tsx"] }
+auto-format = true
+language-servers = ["typescript-language-server", "oxlint"]
+
+[[language]]
+name = "jsx"
+formatter = { command = "npx", args = ["oxfmt", "--stdin-filepath", "file.jsx"] }
+auto-format = true
+language-servers = ["typescript-language-server", "oxlint"]

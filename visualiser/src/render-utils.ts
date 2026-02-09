@@ -1,36 +1,36 @@
-import type { LayoutNode, LayoutResult, GraphData } from './types.js';
+import type { LayoutNode, LayoutResult, GraphData } from "./types.js";
 
 // ── Colors ─────────────────────────────────────────────────────────────────
 
 export const COLORS = {
-  source: 'var(--node-source)',
-  target: 'var(--node-target)',
-  instrumented: 'var(--node-instrumented)',
-  regularFill: 'var(--node-fill)',
-  regularBorder: 'var(--node-border)',
-  text: 'var(--node-text)',
-  edgeDirect: 'var(--edge-direct)',
-  edgeStaticMethod: 'var(--edge-static-method)',
-  edgeDiDefault: 'var(--edge-di-default)',
-  edgeInstrumentWrapper: 'var(--edge-instrument-wrapper)',
-  edgeReExport: 'var(--edge-re-export)',
-  backedge: 'var(--edge-backedge)',
-  clusterBorder: 'var(--cluster-border)',
-  clusterLabel: 'var(--cluster-label)',
-  clusterFill: 'var(--cluster-fill)',
+  source: "var(--node-source)",
+  target: "var(--node-target)",
+  instrumented: "var(--node-instrumented)",
+  regularFill: "var(--node-fill)",
+  regularBorder: "var(--node-border)",
+  text: "var(--node-text)",
+  edgeDirect: "var(--edge-direct)",
+  edgeStaticMethod: "var(--edge-static-method)",
+  edgeDiDefault: "var(--edge-di-default)",
+  edgeInstrumentWrapper: "var(--edge-instrument-wrapper)",
+  edgeReExport: "var(--edge-re-export)",
+  backedge: "var(--edge-backedge)",
+  clusterBorder: "var(--cluster-border)",
+  clusterLabel: "var(--cluster-label)",
+  clusterFill: "var(--cluster-fill)",
 } as const;
 
 export const TEAM_COLORS = [
-  '#4a7c6f',
-  '#6b5b8a',
-  '#7a6340',
-  '#4a6a8a',
-  '#8a5a5a',
-  '#5a7a5a',
-  '#7a5a7a',
-  '#5a6a7a',
-  '#6a7a5a',
-  '#7a6a5a',
+  "#4a7c6f",
+  "#6b5b8a",
+  "#7a6340",
+  "#4a6a8a",
+  "#8a5a5a",
+  "#5a7a5a",
+  "#7a5a7a",
+  "#5a6a7a",
+  "#6a7a5a",
+  "#7a6a5a",
 ];
 
 export const CORNER_RADIUS = 5;
@@ -50,13 +50,13 @@ export function teamColor(teamName: string): string {
 
 export function edgeColor(kind: string): string {
   switch (kind) {
-    case 'static-method':
+    case "static-method":
       return COLORS.edgeStaticMethod;
-    case 'di-default':
+    case "di-default":
       return COLORS.edgeDiDefault;
-    case 'instrument-wrapper':
+    case "instrument-wrapper":
       return COLORS.edgeInstrumentWrapper;
-    case 're-export':
+    case "re-export":
       return COLORS.edgeReExport;
     default:
       return COLORS.edgeDirect;
@@ -65,13 +65,13 @@ export function edgeColor(kind: string): string {
 
 export function edgeDasharray(kind: string): string {
   switch (kind) {
-    case 'di-default':
-      return '6,3';
-    case 'instrument-wrapper':
-    case 're-export':
-      return '3,3';
+    case "di-default":
+      return "6,3";
+    case "instrument-wrapper":
+    case "re-export":
+      return "3,3";
     default:
-      return '';
+      return "";
   }
 }
 
@@ -82,26 +82,22 @@ export function edgeLabel(kind: string): string | null {
   }
 }
 
-export function nodeColor(
-  node: LayoutNode
-): { fill: string; stroke: string; textFill: string } {
+export function nodeColor(node: LayoutNode): { fill: string; stroke: string; textFill: string } {
   if (!node.original)
     return { fill: COLORS.regularFill, stroke: COLORS.regularBorder, textFill: COLORS.text };
   if (node.original.isSource)
-    return { fill: COLORS.source, stroke: COLORS.source, textFill: '#ffffff' };
+    return { fill: COLORS.source, stroke: COLORS.source, textFill: "#ffffff" };
   if (node.original.isTarget)
-    return { fill: COLORS.target, stroke: COLORS.target, textFill: '#ffffff' };
+    return { fill: COLORS.target, stroke: COLORS.target, textFill: "#ffffff" };
   if (node.original.isInstrumented)
-    return { fill: COLORS.instrumented, stroke: COLORS.instrumented, textFill: '#ffffff' };
+    return { fill: COLORS.instrumented, stroke: COLORS.instrumented, textFill: "#ffffff" };
   return { fill: COLORS.regularFill, stroke: COLORS.regularBorder, textFill: COLORS.text };
 }
 
 // ── Edge Path Construction ─────────────────────────────────────────────────
 
-export function buildOrthogonalPath(
-  waypoints: Array<{ x: number; y: number }>
-): string {
-  if (waypoints.length < 2) return '';
+export function buildOrthogonalPath(waypoints: Array<{ x: number; y: number }>): string {
+  if (waypoints.length < 2) return "";
   const parts: string[] = [`M ${waypoints[0].x} ${waypoints[0].y}`];
 
   for (let i = 1; i < waypoints.length; i++) {
@@ -136,7 +132,7 @@ export function buildOrthogonalPath(
     }
   }
 
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 // ── Bounds Computation ─────────────────────────────────────────────────────
@@ -184,15 +180,14 @@ export function computeBounds(layout: LayoutResult): {
 // ── Path Helpers ───────────────────────────────────────────────────────────
 
 export function fileName(filePath: string): string {
-  return filePath.split('/').pop() ?? filePath;
+  return filePath.split("/").pop() ?? filePath;
 }
 
 // ── Node label ─────────────────────────────────────────────────────────────
 
 export function nodeLabel(node: LayoutNode): string {
   if (node.isCollapsedGroup && node.original) {
-    const fn =
-      node.original.filePath.split('/').pop() ?? node.original.filePath;
+    const fn = node.original.filePath.split("/").pop() ?? node.original.filePath;
     return `${fn} (${node.nodeCount})`;
   }
   if (node.original) {
@@ -203,27 +198,17 @@ export function nodeLabel(node: LayoutNode): string {
 
 // ── Filter Helpers ─────────────────────────────────────────────────────────
 
-export function filterByFocus(
-  graphData: GraphData,
-  focusIds: Set<string>
-): GraphData {
+export function filterByFocus(graphData: GraphData, focusIds: Set<string>): GraphData {
   const nodes = graphData.nodes.filter((n) => focusIds.has(n.id));
   const nodeIdSet = new Set(nodes.map((n) => n.id));
-  const edges = graphData.edges.filter(
-    (e) => nodeIdSet.has(e.from) && nodeIdSet.has(e.to)
-  );
+  const edges = graphData.edges.filter((e) => nodeIdSet.has(e.from) && nodeIdSet.has(e.to));
   return { nodes, edges, codeowners: graphData.codeowners };
 }
 
-export function filterByHidden(
-  graphData: GraphData,
-  hiddenIds: Set<string>
-): GraphData {
+export function filterByHidden(graphData: GraphData, hiddenIds: Set<string>): GraphData {
   if (hiddenIds.size === 0) return graphData;
   const nodes = graphData.nodes.filter((n) => !hiddenIds.has(n.id));
   const nodeIdSet = new Set(nodes.map((n) => n.id));
-  const edges = graphData.edges.filter(
-    (e) => nodeIdSet.has(e.from) && nodeIdSet.has(e.to)
-  );
+  const edges = graphData.edges.filter((e) => nodeIdSet.has(e.from) && nodeIdSet.has(e.to));
   return { nodes, edges, codeowners: graphData.codeowners };
 }

@@ -1,12 +1,6 @@
-import type { FunctionId, FunctionNode, CallGraph } from './types.js';
-import {
-  createEmptyGraph,
-  addNode,
-  addEdge,
-  makeFunctionId,
-  parseFunctionId,
-} from './types.js';
-import { Resolver } from './resolver.js';
+import type { FunctionId, FunctionNode, CallGraph } from "./types.js";
+import { createEmptyGraph, addNode, addEdge, makeFunctionId, parseFunctionId } from "./types.js";
+import { Resolver } from "./resolver.js";
 
 export interface BfsOptions {
   maxDepth: number;
@@ -21,7 +15,7 @@ export interface BfsOptions {
 export function forwardBfs(
   sourceId: FunctionId,
   resolver: Resolver,
-  options: BfsOptions
+  options: BfsOptions,
 ): CallGraph {
   const graph = createEmptyGraph();
   const { filePath, qualifiedName } = parseFunctionId(sourceId);
@@ -37,11 +31,9 @@ export function forwardBfs(
   const resolved = resolver.resolveQualifiedName(filePath, qualifiedName);
   if (!resolved) {
     if (options.verbose) {
+      process.stderr.write(`Error: function "${qualifiedName}" not found in ${filePath}\n`);
       process.stderr.write(
-        `Error: function "${qualifiedName}" not found in ${filePath}\n`
-      );
-      process.stderr.write(
-        `  Available functions: ${file.functions.map((f) => f.qualifiedName).join(', ')}\n`
+        `  Available functions: ${file.functions.map((f) => f.qualifiedName).join(", ")}\n`,
       );
     }
     return graph;
@@ -82,19 +74,16 @@ export function forwardBfs(
       break;
     }
 
-    const { filePath: curFilePath, qualifiedName: curQualName } =
-      parseFunctionId(currentId);
+    const { filePath: curFilePath, qualifiedName: curQualName } = parseFunctionId(currentId);
     const curFile = resolver.getFile(curFilePath);
     if (!curFile) continue;
 
-    const curFn = curFile.functions.find(
-      (f) => f.qualifiedName === curQualName
-    );
+    const curFn = curFile.functions.find((f) => f.qualifiedName === curQualName);
     if (!curFn) continue;
 
     if (options.verbose && curFn.callSites.length > 0) {
       process.stderr.write(
-        `  [depth=${depth}] ${curQualName}: ${curFn.callSites.length} call sites\n`
+        `  [depth=${depth}] ${curQualName}: ${curFn.callSites.length} call sites\n`,
       );
     }
 
@@ -154,10 +143,7 @@ export function mergeGraphs(graphs: CallGraph[]): CallGraph {
  * Backward BFS from targetIds on the reverse edges of the graph.
  * Returns the set of nodes reachable by walking backward from any target.
  */
-function backwardReachable(
-  graph: CallGraph,
-  targetIds: FunctionId[]
-): Set<FunctionId> {
+function backwardReachable(graph: CallGraph, targetIds: FunctionId[]): Set<FunctionId> {
   const reachable = new Set<FunctionId>();
   const queue: FunctionId[] = [];
 
@@ -191,7 +177,7 @@ function backwardReachable(
 export function sliceGraph(
   graph: CallGraph,
   sourceIds: FunctionId[],
-  targetIds: FunctionId[]
+  targetIds: FunctionId[],
 ): CallGraph {
   // Compute backward-reachable from all targets.
   const backReachable = backwardReachable(graph, targetIds);

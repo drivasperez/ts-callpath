@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 export interface CodeownersRule {
   pattern: string;
@@ -11,12 +11,12 @@ export interface CodeownersRule {
  * Returns null if not found.
  */
 export function loadCodeowners(repoRoot: string): CodeownersRule[] | null {
-  const filePath = path.join(repoRoot, 'CODEOWNERS');
+  const filePath = path.join(repoRoot, "CODEOWNERS");
   if (!fs.existsSync(filePath)) {
     return null;
   }
 
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = fs.readFileSync(filePath, "utf-8");
   return parseCodeowners(content);
 }
 
@@ -25,15 +25,15 @@ export function loadCodeowners(repoRoot: string): CodeownersRule[] | null {
  */
 export function parseCodeowners(content: string): CodeownersRule[] {
   const rules: CodeownersRule[] = [];
-  for (const rawLine of content.split('\n')) {
+  for (const rawLine of content.split("\n")) {
     const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
+    if (!line || line.startsWith("#")) continue;
 
     const parts = line.split(/\s+/);
     if (parts.length < 2) continue;
 
     const pattern = parts[0];
-    const teams = parts.slice(1).filter((t) => t.startsWith('@'));
+    const teams = parts.slice(1).filter((t) => t.startsWith("@"));
     if (teams.length > 0) {
       rules.push({ pattern, teams });
     }
@@ -46,29 +46,29 @@ export function parseCodeowners(content: string): CodeownersRule[] {
  */
 function matchesPattern(relPath: string, pattern: string): boolean {
   // Normalize: strip leading /
-  const p = pattern.startsWith('/') ? pattern.slice(1) : pattern;
+  const p = pattern.startsWith("/") ? pattern.slice(1) : pattern;
 
   // Directory pattern: "path/to/dir/" — matches anything under dir
-  if (p.endsWith('/')) {
+  if (p.endsWith("/")) {
     return relPath.startsWith(p) || relPath === p.slice(0, -1);
   }
 
   // Recursive glob: "path/**" — matches anything under path
-  if (p.endsWith('/**')) {
+  if (p.endsWith("/**")) {
     const prefix = p.slice(0, -3);
-    return relPath.startsWith(prefix + '/') || relPath === prefix;
+    return relPath.startsWith(prefix + "/") || relPath === prefix;
   }
 
   // Wildcard glob: contains * but not **
-  if (p.includes('*')) {
+  if (p.includes("*")) {
     const regex = new RegExp(
-      '^' +
+      "^" +
         p
-          .replace(/\./g, '\\.')
-          .replace(/\*\*/g, '__DOUBLESTAR__')
-          .replace(/\*/g, '[^/]*')
-          .replace(/__DOUBLESTAR__/g, '.*') +
-        '$'
+          .replace(/\./g, "\\.")
+          .replace(/\*\*/g, "__DOUBLESTAR__")
+          .replace(/\*/g, "[^/]*")
+          .replace(/__DOUBLESTAR__/g, ".*") +
+        "$",
     );
     return regex.test(relPath);
   }
@@ -82,22 +82,19 @@ function matchesPattern(relPath: string, pattern: string): boolean {
  * E.g. "@watershed-climate/calcprint" → "calcprint"
  */
 function stripTeamPrefix(team: string): string {
-  const slash = team.lastIndexOf('/');
+  const slash = team.lastIndexOf("/");
   if (slash !== -1) {
     return team.slice(slash + 1);
   }
   // Strip leading @
-  return team.startsWith('@') ? team.slice(1) : team;
+  return team.startsWith("@") ? team.slice(1) : team;
 }
 
 /**
  * Get the owning teams for a file path.
  * Uses last-matching-rule-wins semantics (per GitHub CODEOWNERS spec).
  */
-export function getFileOwners(
-  relPath: string,
-  rules: CodeownersRule[]
-): string[] {
+export function getFileOwners(relPath: string, rules: CodeownersRule[]): string[] {
   let lastMatch: CodeownersRule | null = null;
   for (const rule of rules) {
     if (matchesPattern(relPath, rule.pattern)) {
@@ -114,7 +111,7 @@ export function getFileOwners(
  */
 export function buildCodeownersMap(
   filePaths: string[],
-  rules: CodeownersRule[]
+  rules: CodeownersRule[],
 ): Record<string, string[]> {
   const map: Record<string, string[]> = {};
   for (const fp of filePaths) {
