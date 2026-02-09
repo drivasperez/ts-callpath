@@ -1,9 +1,4 @@
-import type {
-  GraphData,
-  LayoutDirection,
-  LayoutNode,
-  LayoutResult,
-} from './types.js';
+import type { GraphData, LayoutDirection, LayoutNode, LayoutResult } from "./types.js";
 import {
   detectBackedges,
   assignLayers,
@@ -15,7 +10,7 @@ import {
   preprocessCollapsed,
   type InternalNode,
   type InternalEdge,
-} from './layout-utils.js';
+} from "./layout-utils.js";
 
 // ── Main Export ─────────────────────────────────────────────────────────────
 
@@ -23,7 +18,7 @@ export function layoutGraph(
   data: GraphData,
   collapsedFiles?: Set<string>,
   previousClusterOrder?: string[],
-  direction: LayoutDirection = 'LR'
+  direction: LayoutDirection = "LR",
 ): LayoutResult {
   if (data.nodes.length === 0) {
     return { nodes: [], edges: [], clusters: [], clusterOrder: [] };
@@ -39,16 +34,10 @@ export function layoutGraph(
   }
 
   const nodeIds = effectiveData.nodes.map((n) => n.id);
-  const sourceNodes = new Set(
-    effectiveData.nodes.filter((n) => n.isSource).map((n) => n.id)
-  );
+  const sourceNodes = new Set(effectiveData.nodes.filter((n) => n.isSource).map((n) => n.id));
 
   // Phase 1: Detect backedges
-  const backedgeSet = detectBackedges(
-    nodeIds,
-    effectiveData.edges,
-    sourceNodes
-  );
+  const backedgeSet = detectBackedges(nodeIds, effectiveData.edges, sourceNodes);
 
   // DAG edges (backedges removed)
   const dagEdges = effectiveData.edges
@@ -58,7 +47,7 @@ export function layoutGraph(
   // Phase 2: Layer assignment
   const layers = assignLayers(
     nodeIds,
-    dagEdges.map((e) => ({ from: e.from, to: e.to }))
+    dagEdges.map((e) => ({ from: e.from, to: e.to })),
   );
 
   const maxLayer = Math.max(0, ...layers.values());
@@ -99,7 +88,7 @@ export function layoutGraph(
     withDummies.nodes,
     withDummies.edges,
     actualMaxLayer,
-    previousClusterOrder
+    previousClusterOrder,
   );
 
   // Phase 5: Coordinate assignment
@@ -108,7 +97,7 @@ export function layoutGraph(
     order,
     actualMaxLayer,
     previousClusterOrder,
-    direction
+    direction,
   );
   const positionedMap = new Map(positioned.map((p) => [p.id, p]));
 
@@ -119,7 +108,7 @@ export function layoutGraph(
   const layoutNodes: LayoutNode[] = positioned
     .filter((p) => !p.isDummy)
     .map((p) => {
-      const isCollapsed = p.id.startsWith('__collapsed:');
+      const isCollapsed = p.id.startsWith("__collapsed:");
       const node: LayoutNode = {
         id: p.id,
         x: p.x,
@@ -132,7 +121,7 @@ export function layoutGraph(
         order: p.order,
       };
       if (isCollapsed) {
-        const filePath = p.id.slice('__collapsed:'.length);
+        const filePath = p.id.slice("__collapsed:".length);
         node.isCollapsedGroup = true;
         node.nodeCount = collapsedCounts.get(filePath) ?? 0;
       }

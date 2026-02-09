@@ -7,8 +7,8 @@ import type {
   LayoutEdge,
   LayoutCluster,
   GraphEdge,
-} from './types.js';
-import { layoutGraph } from './layout.js';
+} from "./types.js";
+import { layoutGraph } from "./layout.js";
 import {
   COLORS,
   TRANSITION_MS,
@@ -23,33 +23,27 @@ import {
   nodeLabel,
   filterByFocus,
   filterByHidden,
-} from './render-utils.js';
-import hljs from 'highlight.js/lib/core';
-import typescript from 'highlight.js/lib/languages/typescript';
+} from "./render-utils.js";
+import hljs from "highlight.js/lib/core";
+import typescript from "highlight.js/lib/languages/typescript";
 // @ts-expect-error -- loaded as text by esbuild (text loader) and vite (?raw)
-import hljsThemeDark from 'highlight.js/styles/github-dark.css?raw';
+import hljsThemeDark from "highlight.js/styles/github-dark.css?raw";
 // @ts-expect-error -- loaded as text by esbuild (text loader) and vite (?raw)
-import hljsThemeLight from 'highlight.js/styles/github.css?raw';
+import hljsThemeLight from "highlight.js/styles/github.css?raw";
 
-hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage("typescript", typescript);
 
 // ── SVG Helpers ────────────────────────────────────────────────────────────
 
-export function svgEl(
-  tag: string,
-  attrs: Record<string, string | number> = {}
-): SVGElement {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+export function svgEl(tag: string, attrs: Record<string, string | number> = {}): SVGElement {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
   for (const [k, v] of Object.entries(attrs)) {
     el.setAttribute(k, String(v));
   }
   return el;
 }
 
-export function htmlEl(
-  tag: string,
-  attrs: Record<string, string> = {}
-): HTMLElement {
+export function htmlEl(tag: string, attrs: Record<string, string> = {}): HTMLElement {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     el.setAttribute(k, v);
@@ -60,17 +54,17 @@ export function htmlEl(
 // ── Arrowhead Markers ──────────────────────────────────────────────────────
 
 function createMarker(defs: SVGElement, id: string, color: string): void {
-  const marker = svgEl('marker', {
+  const marker = svgEl("marker", {
     id,
-    viewBox: '0 0 10 7',
+    viewBox: "0 0 10 7",
     refX: 10,
     refY: 3.5,
     markerWidth: 8,
     markerHeight: 6,
-    orient: 'auto-start-reverse',
+    orient: "auto-start-reverse",
   });
-  const polygon = svgEl('polygon', {
-    points: '0 0, 10 3.5, 0 7',
+  const polygon = svgEl("polygon", {
+    points: "0 0, 10 3.5, 0 7",
     fill: color,
   });
   marker.appendChild(polygon);
@@ -78,13 +72,13 @@ function createMarker(defs: SVGElement, id: string, color: string): void {
 }
 
 function markerIdForEdge(edge: { kind: string; isBackedge: boolean }): string {
-  return edge.isBackedge ? 'arrow-backedge' : `arrow-${edge.kind}`;
+  return edge.isBackedge ? "arrow-backedge" : `arrow-${edge.kind}`;
 }
 
 function ensureMarkers(defs: SVGElement, layout: LayoutResult): void {
   const existing = new Set<string>();
   for (const child of Array.from(defs.children)) {
-    const id = child.getAttribute('id');
+    const id = child.getAttribute("id");
     if (id) existing.add(id);
   }
   for (const e of layout.edges) {
@@ -110,7 +104,7 @@ function createContextMenu(): {
   show: (items: ContextMenuItem[], x: number, y: number) => void;
   hide: () => void;
 } {
-  const el = htmlEl('div', { id: 'context-menu' });
+  const el = htmlEl("div", { id: "context-menu" });
   el.style.cssText = `
     position: fixed; display: none;
     background: var(--ctx-bg); border: 1px solid var(--ctx-border); border-radius: 6px;
@@ -121,39 +115,38 @@ function createContextMenu(): {
   document.body.appendChild(el);
 
   function hide() {
-    el.style.display = 'none';
-    el.innerHTML = '';
+    el.style.display = "none";
+    el.innerHTML = "";
   }
 
   function show(items: ContextMenuItem[], x: number, y: number) {
-    el.innerHTML = '';
+    el.innerHTML = "";
     for (const item of items) {
-      const row = htmlEl('div');
+      const row = htmlEl("div");
       row.style.cssText = `
         display: flex; align-items: center; gap: 8px;
         padding: 6px 12px; cursor: pointer; color: var(--ctx-text);
       `;
-      row.addEventListener('mouseenter', () => {
-        row.style.background = 'var(--ctx-hover-bg)';
-        row.style.color = 'var(--ctx-hover-text)';
+      row.addEventListener("mouseenter", () => {
+        row.style.background = "var(--ctx-hover-bg)";
+        row.style.color = "var(--ctx-hover-text)";
       });
-      row.addEventListener('mouseleave', () => {
-        row.style.background = 'none';
-        row.style.color = 'var(--ctx-text)';
+      row.addEventListener("mouseleave", () => {
+        row.style.background = "none";
+        row.style.color = "var(--ctx-text)";
       });
 
-      const iconSpan = htmlEl('span');
-      iconSpan.style.cssText =
-        'width: 18px; text-align: center; flex-shrink: 0;';
+      const iconSpan = htmlEl("span");
+      iconSpan.style.cssText = "width: 18px; text-align: center; flex-shrink: 0;";
       iconSpan.textContent = item.icon;
       row.appendChild(iconSpan);
 
-      const labelSpan = htmlEl('span');
+      const labelSpan = htmlEl("span");
       labelSpan.textContent = item.label;
       row.appendChild(labelSpan);
 
       if (item.shortcut) {
-        const shortcutSpan = htmlEl('span');
+        const shortcutSpan = htmlEl("span");
         shortcutSpan.textContent = item.shortcut;
         shortcutSpan.style.cssText = `
           margin-left: auto; font-size: 10px; color: var(--ctx-shortcut-text);
@@ -163,7 +156,7 @@ function createContextMenu(): {
         row.appendChild(shortcutSpan);
       }
 
-      row.addEventListener('click', (e) => {
+      row.addEventListener("click", (e) => {
         e.stopPropagation();
         hide();
         item.action();
@@ -172,7 +165,7 @@ function createContextMenu(): {
       el.appendChild(row);
     }
 
-    el.style.display = 'block';
+    el.style.display = "block";
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
 
@@ -198,7 +191,7 @@ function createTooltip(): {
   show: (node: LayoutNode, x: number, y: number) => void;
   hide: () => void;
 } {
-  const el = htmlEl('div', { id: 'tooltip' });
+  const el = htmlEl("div", { id: "tooltip" });
   el.style.cssText = `
     position: fixed; display: none; pointer-events: none;
     background: var(--tooltip-bg); color: var(--tooltip-text); padding: 8px 12px;
@@ -215,29 +208,29 @@ function createTooltip(): {
           `${node.original.filePath}`,
           `Collapsed: ${node.nodeCount} functions`,
           `Click cluster to expand`,
-        ].join('\n');
+        ].join("\n");
       } else if (node.original) {
         const n = node.original;
         const flags: string[] = [];
-        if (n.isSource) flags.push('SOURCE');
-        if (n.isTarget) flags.push('TARGET');
-        if (n.isInstrumented) flags.push('INSTRUMENTED');
+        if (n.isSource) flags.push("SOURCE");
+        if (n.isTarget) flags.push("TARGET");
+        if (n.isInstrumented) flags.push("INSTRUMENTED");
 
-        el.innerHTML = '';
-        const meta = document.createElement('div');
-        meta.style.whiteSpace = 'pre-wrap';
+        el.innerHTML = "";
+        const meta = document.createElement("div");
+        meta.style.whiteSpace = "pre-wrap";
         meta.textContent = [
           n.qualifiedName,
           `File: ${n.filePath}`,
           `Line: ${n.line}`,
-          flags.length > 0 ? `Flags: ${flags.join(', ')}` : null,
+          flags.length > 0 ? `Flags: ${flags.join(", ")}` : null,
         ]
           .filter(Boolean)
-          .join('\n');
+          .join("\n");
         el.appendChild(meta);
 
         if (n.description) {
-          const desc = document.createElement('div');
+          const desc = document.createElement("div");
           desc.style.cssText = `
             margin-top: 6px; padding: 5px 8px;
             background: var(--source-desc-bg);
@@ -254,12 +247,12 @@ function createTooltip(): {
         return;
       }
 
-      el.style.display = 'block';
+      el.style.display = "block";
       el.style.left = `${x + 12}px`;
       el.style.top = `${y + 12}px`;
     },
     hide() {
-      el.style.display = 'none';
+      el.style.display = "none";
     },
   };
 }
@@ -271,7 +264,7 @@ function createEdgeTooltip(): {
   show: (edge: GraphEdge, isBackedge: boolean, x: number, y: number) => void;
   hide: () => void;
 } {
-  const el = htmlEl('div', { id: 'edge-tooltip' });
+  const el = htmlEl("div", { id: "edge-tooltip" });
   el.style.cssText = `
     position: fixed; display: none; pointer-events: none;
     background: var(--tooltip-bg); color: var(--tooltip-text); padding: 8px 12px;
@@ -283,21 +276,21 @@ function createEdgeTooltip(): {
   return {
     el,
     show(edge: GraphEdge, isBackedge: boolean, x: number, y: number) {
-      const fromShort = edge.from.split('::').pop() ?? edge.from;
-      const toShort = edge.to.split('::').pop() ?? edge.to;
+      const fromShort = edge.from.split("::").pop() ?? edge.from;
+      const toShort = edge.to.split("::").pop() ?? edge.to;
       const lines: string[] = [
         `${fromShort} \u2192 ${toShort}`,
         `Kind: ${edge.kind}`,
         `Called at line ${edge.callLine}`,
       ];
-      if (isBackedge) lines.push('Backedge (cycle)');
-      el.textContent = lines.join('\n');
-      el.style.display = 'block';
+      if (isBackedge) lines.push("Backedge (cycle)");
+      el.textContent = lines.join("\n");
+      el.style.display = "block";
       el.style.left = `${x + 12}px`;
       el.style.top = `${y + 12}px`;
     },
     hide() {
-      el.style.display = 'none';
+      el.style.display = "none";
     },
   };
 }
@@ -311,10 +304,10 @@ function createSourcePanel(data: GraphData): {
   hide: () => void;
   el: HTMLElement;
 } {
-  const savedWidth = localStorage.getItem('ts-callpath-source-width');
-  const defaultWidth = savedWidth ? `${savedWidth}px` : '600px';
+  const savedWidth = localStorage.getItem("ts-callpath-source-width");
+  const defaultWidth = savedWidth ? `${savedWidth}px` : "600px";
 
-  const el = htmlEl('div', { id: 'source-panel' });
+  const el = htmlEl("div", { id: "source-panel" });
   el.style.cssText = `
     position: fixed; right: 0; top: 50px; bottom: 0; width: ${defaultWidth};
     background: var(--source-bg); border-left: 1px solid var(--panel-border);
@@ -323,50 +316,51 @@ function createSourcePanel(data: GraphData): {
   `;
 
   // Resize handle on the left edge
-  const resizeHandle = htmlEl('div');
+  const resizeHandle = htmlEl("div");
   resizeHandle.style.cssText = `
     position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
     cursor: col-resize; z-index: 1;
   `;
   el.appendChild(resizeHandle);
 
-  resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
+  resizeHandle.addEventListener("mousedown", (e: MouseEvent) => {
     e.preventDefault();
     const onMouseMove = (ev: MouseEvent) => {
       const newWidth = Math.min(
         Math.max(300, window.innerWidth - ev.clientX),
-        window.innerWidth * 0.8
+        window.innerWidth * 0.8,
       );
       el.style.width = `${newWidth}px`;
     };
     const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      localStorage.setItem('ts-callpath-source-width', String(parseInt(el.style.width)));
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      localStorage.setItem("ts-callpath-source-width", String(parseInt(el.style.width)));
     };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   });
 
-  const header = htmlEl('div');
+  const header = htmlEl("div");
   header.style.cssText = `
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 12px; background: var(--source-header-bg); border-bottom: 1px solid var(--source-header-border);
     font-size: 12px; color: var(--source-header-text); flex-shrink: 0; gap: 8px;
   `;
-  const headerTitle = htmlEl('span');
-  headerTitle.style.cssText = 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-  const headerRight = htmlEl('div');
-  headerRight.style.cssText = 'display: flex; align-items: center; gap: 6px; flex-shrink: 0;';
-  const editorLink = htmlEl('a') as HTMLAnchorElement;
+  const headerTitle = htmlEl("span");
+  headerTitle.style.cssText =
+    "flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
+  const headerRight = htmlEl("div");
+  headerRight.style.cssText = "display: flex; align-items: center; gap: 6px; flex-shrink: 0;";
+  const editorLink = htmlEl("a") as HTMLAnchorElement;
   editorLink.style.cssText = `
     color: var(--source-link); font-size: 11px; text-decoration: none;
     padding: 2px 6px; border: 1px solid var(--panel-border); border-radius: 3px;
     white-space: nowrap;
   `;
-  editorLink.textContent = 'Open in editor';
-  const closeBtn = htmlEl('button');
-  closeBtn.textContent = '\u00d7';
+  editorLink.textContent = "Open in editor";
+  const closeBtn = htmlEl("button");
+  closeBtn.textContent = "\u00d7";
   closeBtn.style.cssText = `
     background: none; border: none; color: var(--source-close); font-size: 18px;
     cursor: pointer; padding: 0 4px; line-height: 1;
@@ -378,13 +372,13 @@ function createSourcePanel(data: GraphData): {
   el.appendChild(header);
 
   // Persistent signature container — stays pinned between header and body
-  const sigContainer = htmlEl('div');
+  const sigContainer = htmlEl("div");
   sigContainer.style.cssText = `
     flex-shrink: 0; overflow: hidden; display: none;
   `;
   el.appendChild(sigContainer);
 
-  const body = htmlEl('div');
+  const body = htmlEl("div");
   body.style.cssText = `
     flex: 1; overflow: auto; padding: 0;
   `;
@@ -397,19 +391,22 @@ function createSourcePanel(data: GraphData): {
     function scopeHljsTheme(css: string, selector: string): string {
       return (css as string).replace(/\.hljs\b/g, `${selector} .hljs`);
     }
-    const darkStyle = document.createElement('style');
-    darkStyle.textContent = scopeHljsTheme(hljsThemeDark as string, ':root:not([data-theme="light"])');
+    const darkStyle = document.createElement("style");
+    darkStyle.textContent = scopeHljsTheme(
+      hljsThemeDark as string,
+      ':root:not([data-theme="light"])',
+    );
     document.head.appendChild(darkStyle);
-    const lightStyle = document.createElement('style');
+    const lightStyle = document.createElement("style");
     lightStyle.textContent = scopeHljsTheme(hljsThemeLight as string, '[data-theme="light"]');
     document.head.appendChild(lightStyle);
     hljsThemeInjected = true;
   }
 
-  closeBtn.addEventListener('click', () => hide());
+  closeBtn.addEventListener("click", () => hide());
 
   function buildEditorUrl(filePath: string, line: number): string | null {
-    const editor = data.editor ?? 'cursor';
+    const editor = data.editor ?? "cursor";
     const repoRoot = data.repoRoot;
     if (!repoRoot) return null;
     const absPath = `${repoRoot}/${filePath}`;
@@ -417,7 +414,7 @@ function createSourcePanel(data: GraphData): {
   }
 
   function hide() {
-    el.style.display = 'none';
+    el.style.display = "none";
   }
 
   function show(node: GraphNode) {
@@ -428,18 +425,18 @@ function createSourcePanel(data: GraphData): {
     const url = buildEditorUrl(node.filePath, node.line);
     if (url) {
       editorLink.href = url;
-      editorLink.textContent = `Open in ${data.editor ?? 'cursor'}`;
-      editorLink.style.display = 'inline-block';
+      editorLink.textContent = `Open in ${data.editor ?? "cursor"}`;
+      editorLink.style.display = "inline-block";
     } else {
-      editorLink.style.display = 'none';
+      editorLink.style.display = "none";
     }
 
-    body.innerHTML = '';
+    body.innerHTML = "";
 
     // Signature section — pinned above the scroll area
     if (node.signature) {
-      sigContainer.innerHTML = '';
-      const sigBlock = htmlEl('div');
+      sigContainer.innerHTML = "";
+      const sigBlock = htmlEl("div");
       sigBlock.style.cssText = `
         padding: 8px 12px; background: var(--source-sig-bg);
         border-bottom: 1px solid var(--source-sig-border); color: var(--source-sig-text); font-size: 12px;
@@ -447,29 +444,29 @@ function createSourcePanel(data: GraphData): {
       `;
       sigBlock.textContent = `${node.qualifiedName}${node.signature}`;
       sigContainer.appendChild(sigBlock);
-      sigContainer.style.display = 'block';
+      sigContainer.style.display = "block";
     } else {
-      sigContainer.style.display = 'none';
+      sigContainer.style.display = "none";
     }
 
     // Source lines (syntax-highlighted)
-    const highlighted = hljs.highlight(node.sourceSnippet, { language: 'typescript' }).value;
-    const highlightedLines = highlighted.split('\n');
-    const pre = htmlEl('pre');
-    pre.className = 'hljs';
+    const highlighted = hljs.highlight(node.sourceSnippet, { language: "typescript" }).value;
+    const highlightedLines = highlighted.split("\n");
+    const pre = htmlEl("pre");
+    pre.className = "hljs";
     pre.style.cssText = `margin: 0; padding: 8px 0; font-size: 11px; line-height: 1.5; background: transparent;`;
     for (let i = 0; i < highlightedLines.length; i++) {
       const lineNum = node.line + i;
-      const row = htmlEl('div');
-      row.style.cssText = `display: flex; padding: 0 12px;${i === 0 ? ' background: var(--source-highlight);' : ''}`;
-      const num = htmlEl('span');
+      const row = htmlEl("div");
+      row.style.cssText = `display: flex; padding: 0 12px;${i === 0 ? " background: var(--source-highlight);" : ""}`;
+      const num = htmlEl("span");
       num.style.cssText = `
         display: inline-block; width: 40px; text-align: right;
         color: var(--source-linenum); margin-right: 12px; flex-shrink: 0; user-select: none;
       `;
       num.textContent = String(lineNum);
-      const code = htmlEl('span');
-      code.style.cssText = 'white-space: pre;';
+      const code = htmlEl("span");
+      code.style.cssText = "white-space: pre;";
       code.innerHTML = highlightedLines[i];
       row.appendChild(num);
       row.appendChild(code);
@@ -477,7 +474,7 @@ function createSourcePanel(data: GraphData): {
     }
     body.appendChild(pre);
 
-    el.style.display = 'flex';
+    el.style.display = "flex";
   }
 
   return { show, hide, el };
@@ -488,13 +485,13 @@ function createSourcePanel(data: GraphData): {
 function createSearchOverlay(
   data: GraphData,
   panToNode: (id: string) => void,
-  nodeEls: Map<string, SVGGElement>
+  nodeEls: Map<string, SVGGElement>,
 ): {
   show: () => void;
   hide: () => void;
   el: HTMLElement;
 } {
-  const el = htmlEl('div', { id: 'search-overlay' });
+  const el = htmlEl("div", { id: "search-overlay" });
   el.style.cssText = `
     position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
     width: 420px; background: var(--search-bg); border: 1px solid var(--search-border);
@@ -503,9 +500,9 @@ function createSearchOverlay(
     font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   `;
 
-  const input = htmlEl('input') as HTMLInputElement;
-  input.type = 'text';
-  input.placeholder = 'Search functions\u2026';
+  const input = htmlEl("input") as HTMLInputElement;
+  input.type = "text";
+  input.placeholder = "Search functions\u2026";
   input.style.cssText = `
     width: 100%; padding: 10px 14px; background: var(--search-input-bg); color: var(--search-input-text);
     border: none; border-bottom: 1px solid var(--search-input-border); border-radius: 8px 8px 0 0;
@@ -513,7 +510,7 @@ function createSearchOverlay(
   `;
   el.appendChild(input);
 
-  const resultList = htmlEl('div');
+  const resultList = htmlEl("div");
   resultList.style.cssText = `
     max-height: 300px; overflow-y: auto;
   `;
@@ -526,7 +523,7 @@ function createSearchOverlay(
 
   function updateResults() {
     const query = input.value.toLowerCase().trim();
-    resultList.innerHTML = '';
+    resultList.innerHTML = "";
     selectedIdx = 0;
 
     if (!query) {
@@ -537,31 +534,30 @@ function createSearchOverlay(
     currentResults = data.nodes
       .filter(
         (n) =>
-          n.qualifiedName.toLowerCase().includes(query) ||
-          n.filePath.toLowerCase().includes(query)
+          n.qualifiedName.toLowerCase().includes(query) || n.filePath.toLowerCase().includes(query),
       )
       .slice(0, 10);
 
     for (let i = 0; i < currentResults.length; i++) {
       const n = currentResults[i];
-      const row = htmlEl('div');
+      const row = htmlEl("div");
       row.style.cssText = `
         padding: 8px 14px; cursor: pointer; color: var(--search-result-text);
-        ${i === selectedIdx ? 'background: var(--search-result-hover);' : ''}
+        ${i === selectedIdx ? "background: var(--search-result-hover);" : ""}
       `;
-      row.addEventListener('mouseenter', () => {
+      row.addEventListener("mouseenter", () => {
         selectedIdx = i;
         highlightSelected();
       });
-      row.addEventListener('click', () => selectResult(n));
+      row.addEventListener("click", () => selectResult(n));
 
-      const name = htmlEl('div');
-      name.style.cssText = 'font-weight: bold; font-size: 12px;';
+      const name = htmlEl("div");
+      name.style.cssText = "font-weight: bold; font-size: 12px;";
       name.textContent = n.qualifiedName;
       row.appendChild(name);
 
-      const fp = htmlEl('div');
-      fp.style.cssText = 'font-size: 10px; color: var(--search-result-secondary);';
+      const fp = htmlEl("div");
+      fp.style.cssText = "font-size: 10px; color: var(--search-result-secondary);";
       fp.textContent = `${n.filePath}:${n.line}`;
       row.appendChild(fp);
 
@@ -573,7 +569,7 @@ function createSearchOverlay(
     const children = resultList.children;
     for (let i = 0; i < children.length; i++) {
       (children[i] as HTMLElement).style.background =
-        i === selectedIdx ? 'var(--search-result-hover)' : 'none';
+        i === selectedIdx ? "var(--search-result-hover)" : "none";
     }
   }
 
@@ -583,50 +579,48 @@ function createSearchOverlay(
     // Pulse animation
     const nodeEl = nodeEls.get(node.id);
     if (nodeEl) {
-      nodeEl.classList.add('node-pulse');
-      nodeEl.addEventListener(
-        'animationend',
-        () => nodeEl.classList.remove('node-pulse'),
-        { once: true }
-      );
+      nodeEl.classList.add("node-pulse");
+      nodeEl.addEventListener("animationend", () => nodeEl.classList.remove("node-pulse"), {
+        once: true,
+      });
     }
   }
 
-  input.addEventListener('input', updateResults);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') {
+  input.addEventListener("input", updateResults);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
       if (selectedIdx < currentResults.length - 1) selectedIdx++;
       highlightSelected();
-    } else if (e.key === 'ArrowUp') {
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
       if (selectedIdx > 0) selectedIdx--;
       highlightSelected();
-    } else if (e.key === 'Enter') {
+    } else if (e.key === "Enter") {
       e.preventDefault();
       if (currentResults[selectedIdx]) {
         selectResult(currentResults[selectedIdx]);
       }
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       hide();
     }
   });
 
   function show() {
-    el.style.display = 'block';
-    input.value = '';
-    resultList.innerHTML = '';
+    el.style.display = "block";
+    input.value = "";
+    resultList.innerHTML = "";
     currentResults = [];
     input.focus();
   }
 
   function hide() {
-    el.style.display = 'none';
+    el.style.display = "none";
   }
 
   // Close on click outside
-  document.addEventListener('mousedown', (e) => {
-    if (el.style.display !== 'none' && !el.contains(e.target as Node)) {
+  document.addEventListener("mousedown", (e) => {
+    if (el.style.display !== "none" && !el.contains(e.target as Node)) {
       hide();
     }
   });
@@ -646,14 +640,12 @@ function setupPanZoom(svg: SVGSVGElement): {
   let initialBounds = { x: 0, y: 0, w: 0, h: 0 };
 
   function getViewBox() {
-    const vb = svg.getAttribute('viewBox')?.split(' ').map(Number) ?? [
-      0, 0, 800, 600,
-    ];
+    const vb = svg.getAttribute("viewBox")?.split(" ").map(Number) ?? [0, 0, 800, 600];
     return { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
   }
 
   function setViewBox(vb: { x: number; y: number; w: number; h: number }) {
-    svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+    svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   }
 
   /** Convert a screen-space pixel point to SVG-coordinate point via the CTM. */
@@ -671,23 +663,23 @@ function setupPanZoom(svg: SVGSVGElement): {
     const offsetY = (rect.height - vb.h * scale) / 2;
     return new DOMPoint(
       (screenX - rect.left - offsetX) / scale + vb.x,
-      (screenY - rect.top - offsetY) / scale + vb.y
+      (screenY - rect.top - offsetY) / scale + vb.y,
     );
   }
 
-  svg.addEventListener('mousedown', (e: MouseEvent) => {
-    if (e.target === svg || (e.target as Element).tagName === 'rect') {
+  svg.addEventListener("mousedown", (e: MouseEvent) => {
+    if (e.target === svg || (e.target as Element).tagName === "rect") {
       // Only pan on background click
       const target = e.target as Element;
-      if (target === svg || target.classList.contains('bg')) {
+      if (target === svg || target.classList.contains("bg")) {
         isPanning = true;
         panStart = { x: e.clientX, y: e.clientY };
-        svg.style.cursor = 'grabbing';
+        svg.style.cursor = "grabbing";
       }
     }
   });
 
-  window.addEventListener('mousemove', (e: MouseEvent) => {
+  window.addEventListener("mousemove", (e: MouseEvent) => {
     if (!isPanning) return;
     // Map both the previous and current screen positions to SVG coords.
     // The difference gives a pixel-perfect 1:1 pan via the CTM.
@@ -703,13 +695,13 @@ function setupPanZoom(svg: SVGSVGElement): {
     panStart = { x: e.clientX, y: e.clientY };
   });
 
-  window.addEventListener('mouseup', () => {
+  window.addEventListener("mouseup", () => {
     isPanning = false;
-    svg.style.cursor = 'default';
+    svg.style.cursor = "default";
   });
 
   svg.addEventListener(
-    'wheel',
+    "wheel",
     (e: WheelEvent) => {
       e.preventDefault();
 
@@ -738,7 +730,7 @@ function setupPanZoom(svg: SVGSVGElement): {
         h: newH,
       });
     },
-    { passive: false }
+    { passive: false },
   );
 
   function fitAll() {
@@ -780,7 +772,7 @@ function setupHighlighting(
   svg: SVGSVGElement,
   layout: LayoutResult,
   nodeEls: Map<string, SVGGElement>,
-  edgeEls: Map<string, SVGGElement>
+  edgeEls: Map<string, SVGGElement>,
 ): () => void {
   // Build adjacency for path finding
   const predecessors = new Map<string, Set<string>>();
@@ -819,11 +811,11 @@ function setupHighlighting(
   // If so, suppress the click so dragging doesn't clear the highlight.
   let didDrag = false;
   let mouseDownPos = { x: 0, y: 0 };
-  svg.addEventListener('mousedown', (e: MouseEvent) => {
+  svg.addEventListener("mousedown", (e: MouseEvent) => {
     didDrag = false;
     mouseDownPos = { x: e.clientX, y: e.clientY };
   });
-  window.addEventListener('mousemove', (e: MouseEvent) => {
+  window.addEventListener("mousemove", (e: MouseEvent) => {
     if (didDrag) return;
     const dx = e.clientX - mouseDownPos.x;
     const dy = e.clientY - mouseDownPos.y;
@@ -834,8 +826,8 @@ function setupHighlighting(
 
   function clearHighlight() {
     if (!highlighted) return;
-    for (const [, el] of nodeEls) el.style.opacity = '1';
-    for (const [, el] of edgeEls) el.style.opacity = '1';
+    for (const [, el] of nodeEls) el.style.opacity = "1";
+    for (const [, el] of edgeEls) el.style.opacity = "1";
     highlighted = null;
   }
 
@@ -843,7 +835,7 @@ function setupHighlighting(
     if (didDrag) return;
 
     const target = e.target as Element;
-    const nodeGroup = target.closest('.node-group');
+    const nodeGroup = target.closest(".node-group");
 
     if (!nodeGroup) {
       // Click on background: clear highlight
@@ -851,7 +843,7 @@ function setupHighlighting(
       return;
     }
 
-    const nodeId = nodeGroup.getAttribute('data-id');
+    const nodeId = nodeGroup.getAttribute("data-id");
     if (!nodeId) return;
 
     if (highlighted === nodeId) {
@@ -864,19 +856,19 @@ function setupHighlighting(
     const connected = getConnected(nodeId);
 
     for (const [id, el] of nodeEls) {
-      el.style.opacity = connected.has(id) ? '1' : '0.15';
+      el.style.opacity = connected.has(id) ? "1" : "0.15";
     }
     for (const [key, el] of edgeEls) {
-      const [from, to] = key.split('→');
-      el.style.opacity = connected.has(from) && connected.has(to) ? '1' : '0.1';
+      const [from, to] = key.split("→");
+      el.style.opacity = connected.has(from) && connected.has(to) ? "1" : "0.1";
     }
   }
 
-  svg.addEventListener('click', handler);
+  svg.addEventListener("click", handler);
 
   // Return cleanup function
   return () => {
-    svg.removeEventListener('click', handler);
+    svg.removeEventListener("click", handler);
   };
 }
 
@@ -887,14 +879,14 @@ export function createNodeEl(
   tooltip: {
     show: (n: LayoutNode, x: number, y: number) => void;
     hide: () => void;
-  }
+  },
 ): SVGGElement {
-  const g = svgEl('g', {
-    class: 'node-group',
-    'data-id': node.id,
+  const g = svgEl("g", {
+    class: "node-group",
+    "data-id": node.id,
     transform: `translate(${node.x}, ${node.y})`,
   }) as SVGGElement;
-  g.style.cursor = 'pointer';
+  g.style.cursor = "pointer";
 
   const colors = nodeColor(node);
   const rectAttrs: Record<string, string | number> = {
@@ -904,36 +896,36 @@ export function createNodeEl(
     height: node.height,
     fill: colors.fill,
     stroke: colors.stroke,
-    'stroke-width': node.isCollapsedGroup ? 2 : 1,
+    "stroke-width": node.isCollapsedGroup ? 2 : 1,
     rx: 8,
-    filter: 'url(#node-shadow)',
+    filter: "url(#node-shadow)",
   };
   if (node.isCollapsedGroup) {
-    rectAttrs['stroke-dasharray'] = '4,2';
+    rectAttrs["stroke-dasharray"] = "4,2";
   }
-  const rect = svgEl('rect', rectAttrs);
+  const rect = svgEl("rect", rectAttrs);
   g.appendChild(rect);
 
-  const label = svgEl('text', {
+  const label = svgEl("text", {
     x: node.width / 2,
     y: node.height / 2 + 4,
     fill: colors.textFill,
-    'font-size': '11',
-    'font-family': 'monospace',
-    'text-anchor': 'middle',
-    'font-weight': node.isCollapsedGroup ? 'bold' : 'normal',
+    "font-size": "11",
+    "font-family": "monospace",
+    "text-anchor": "middle",
+    "font-weight": node.isCollapsedGroup ? "bold" : "normal",
   });
   label.textContent = nodeLabel(node);
   g.appendChild(label);
 
   // Tooltip events
-  g.addEventListener('mouseenter', (e: MouseEvent) => {
+  g.addEventListener("mouseenter", (e: MouseEvent) => {
     tooltip.show(node, e.clientX, e.clientY);
   });
-  g.addEventListener('mousemove', (e: MouseEvent) => {
+  g.addEventListener("mousemove", (e: MouseEvent) => {
     tooltip.show(node, e.clientX, e.clientY);
   });
-  g.addEventListener('mouseleave', () => {
+  g.addEventListener("mouseleave", () => {
     tooltip.hide();
   });
 
@@ -946,42 +938,42 @@ export function createEdgeEl(
     show: (e: GraphEdge, isBackedge: boolean, x: number, y: number) => void;
     hide: () => void;
   },
-  edgeLookup?: Map<string, GraphEdge>
+  edgeLookup?: Map<string, GraphEdge>,
 ): SVGGElement {
-  const g = svgEl('g', { class: 'edge-group' }) as SVGGElement;
+  const g = svgEl("g", { class: "edge-group" }) as SVGGElement;
   const color = edge.isBackedge ? COLORS.backedge : edgeColor(edge.kind);
-  const dash = edge.isBackedge ? '6,3' : edgeDasharray(edge.kind);
+  const dash = edge.isBackedge ? "6,3" : edgeDasharray(edge.kind);
   const markerId = markerIdForEdge(edge);
 
   // Invisible wider hitbox path for easier hover targeting
-  const hitbox = svgEl('path', {
+  const hitbox = svgEl("path", {
     d: buildOrthogonalPath(edge.waypoints),
-    fill: 'none',
-    stroke: 'transparent',
-    'stroke-width': 10,
+    fill: "none",
+    stroke: "transparent",
+    "stroke-width": 10,
   });
   g.appendChild(hitbox);
 
-  const pathEl = svgEl('path', {
+  const pathEl = svgEl("path", {
     d: buildOrthogonalPath(edge.waypoints),
-    fill: 'none',
+    fill: "none",
     stroke: color,
-    'stroke-width': 1.5,
-    'marker-end': `url(#${markerId})`,
+    "stroke-width": 1.5,
+    "marker-end": `url(#${markerId})`,
   });
-  if (dash) pathEl.setAttribute('stroke-dasharray', dash);
+  if (dash) pathEl.setAttribute("stroke-dasharray", dash);
   g.appendChild(pathEl);
 
   // Edge label
   const labelText = edgeLabel(edge.kind);
   if (labelText && edge.waypoints.length >= 2) {
     const mid = edge.waypoints[Math.floor(edge.waypoints.length / 2)];
-    const el = svgEl('text', {
+    const el = svgEl("text", {
       x: mid.x + 4,
       y: mid.y - 4,
       fill: color,
-      'font-size': '9',
-      'font-family': 'monospace',
+      "font-size": "9",
+      "font-family": "monospace",
     });
     el.textContent = labelText;
     g.appendChild(el);
@@ -991,13 +983,13 @@ export function createEdgeEl(
   const graphEdge = edgeLookup?.get(`${edge.from}\u2192${edge.to}`);
   if (graphEdge && edge.waypoints.length >= 2) {
     const wp = edge.waypoints[0];
-    const callLineLabel = svgEl('text', {
+    const callLineLabel = svgEl("text", {
       x: wp.x + 4,
       y: wp.y + 4,
       fill: color,
-      'font-size': '8',
-      'font-family': 'monospace',
-      opacity: '0.6',
+      "font-size": "8",
+      "font-family": "monospace",
+      opacity: "0.6",
     });
     callLineLabel.textContent = `:${graphEdge.callLine}`;
     g.appendChild(callLineLabel);
@@ -1008,9 +1000,9 @@ export function createEdgeEl(
     const showTip = (e: MouseEvent) => {
       edgeTooltip.show(graphEdge, edge.isBackedge, e.clientX, e.clientY);
     };
-    g.addEventListener('mouseenter', showTip);
-    g.addEventListener('mousemove', showTip);
-    g.addEventListener('mouseleave', () => edgeTooltip.hide());
+    g.addEventListener("mouseenter", showTip);
+    g.addEventListener("mousemove", showTip);
+    g.addEventListener("mouseleave", () => edgeTooltip.hide());
   }
 
   return g;
@@ -1019,35 +1011,35 @@ export function createEdgeEl(
 export function createClusterEl(
   cluster: LayoutCluster,
   isCollapsed: boolean,
-  owners: string[] = []
+  owners: string[] = [],
 ): SVGGElement {
-  const g = svgEl('g', {
-    class: 'cluster-group',
-    'data-filepath': cluster.filePath,
+  const g = svgEl("g", {
+    class: "cluster-group",
+    "data-filepath": cluster.filePath,
     transform: `translate(${cluster.x}, ${cluster.y})`,
   }) as SVGGElement;
-  g.style.cursor = 'pointer';
+  g.style.cursor = "pointer";
 
-  const rect = svgEl('rect', {
+  const rect = svgEl("rect", {
     x: 0,
     y: 0,
     width: cluster.width,
     height: cluster.height,
     fill: COLORS.clusterFill,
     stroke: COLORS.clusterBorder,
-    'stroke-dasharray': '4,4',
+    "stroke-dasharray": "4,4",
     rx: 6,
   });
   g.appendChild(rect);
 
-  const indicator = isCollapsed ? '\u25b8' : '\u25be';
-  const label = svgEl('text', {
+  const indicator = isCollapsed ? "\u25b8" : "\u25be";
+  const label = svgEl("text", {
     x: 6,
     y: 12,
     fill: COLORS.clusterLabel,
-    'font-size': '10',
-    'font-family': 'monospace',
-    class: 'cluster-label',
+    "font-size": "10",
+    "font-family": "monospace",
+    class: "cluster-label",
   });
   label.textContent = `${indicator} ${fileName(cluster.filePath)}`;
   g.appendChild(label);
@@ -1062,24 +1054,24 @@ export function createClusterEl(
       const chipWidth = owner.length * 5.5 + 10;
       const color = teamColor(owner);
 
-      const chipRect = svgEl('rect', {
+      const chipRect = svgEl("rect", {
         x: chipX,
         y: chipY,
         width: chipWidth,
         height: chipHeight,
         fill: color,
         rx: 3,
-        filter: 'url(#chip-shadow)',
+        filter: "url(#chip-shadow)",
       });
       g.appendChild(chipRect);
 
-      const chipText = svgEl('text', {
+      const chipText = svgEl("text", {
         x: chipX + chipWidth / 2,
         y: chipY + chipHeight / 2 + 3,
-        fill: '#ffffff',
-        'font-size': '9',
-        'font-family': 'monospace',
-        'text-anchor': 'middle',
+        fill: "#ffffff",
+        "font-size": "9",
+        "font-family": "monospace",
+        "text-anchor": "middle",
       });
       chipText.textContent = owner;
       g.appendChild(chipText);
@@ -1088,7 +1080,7 @@ export function createClusterEl(
     }
   }
 
-  const title = svgEl('title');
+  const title = svgEl("title");
   title.textContent = cluster.filePath;
   g.appendChild(title);
 
@@ -1097,18 +1089,14 @@ export function createClusterEl(
 
 // ── Main Render ────────────────────────────────────────────────────────────
 
-export function renderGraph(
-  container: HTMLElement,
-  layout: LayoutResult,
-  data: GraphData
-): void {
-  container.innerHTML = '';
+export function renderGraph(container: HTMLElement, layout: LayoutResult, data: GraphData): void {
+  container.innerHTML = "";
 
   // ── State ──
   const collapsedFiles = new Set<string>();
   let focusedNodeIds: Set<string> | null = null;
   const hiddenNodeIds = new Set<string>();
-  let direction: LayoutDirection = 'LR';
+  let direction: LayoutDirection = "LR";
   let currentLayout: LayoutResult = layout;
   const nodeEls = new Map<string, SVGGElement>();
   const edgeEls = new Map<string, SVGGElement>();
@@ -1116,13 +1104,13 @@ export function renderGraph(
   let cleanupHighlighting: (() => void) | null = null;
 
   // ── SVG Setup ──
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '100%');
-  svg.style.display = 'block';
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "100%");
+  svg.setAttribute("height", "100%");
+  svg.style.display = "block";
 
   // CSS transitions
-  const style = svgEl('style');
+  const style = svgEl("style");
   style.textContent = `
     .node-group { transition: transform ${TRANSITION_MS}ms ease, opacity ${TRANSITION_MS}ms ease; }
     .cluster-group { transition: transform ${TRANSITION_MS}ms ease, opacity ${TRANSITION_MS}ms ease; }
@@ -1137,67 +1125,64 @@ export function renderGraph(
   svg.appendChild(style);
 
   const bounds = computeBounds(layout);
-  svg.setAttribute(
-    'viewBox',
-    `${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`
-  );
+  svg.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`);
 
   // Defs
-  const defs = svgEl('defs');
+  const defs = svgEl("defs");
   ensureMarkers(defs, layout);
 
   // Drop shadow filter for team chips
-  const chipShadow = svgEl('filter', {
-    id: 'chip-shadow',
-    x: '-10%',
-    y: '-10%',
-    width: '130%',
-    height: '150%',
+  const chipShadow = svgEl("filter", {
+    id: "chip-shadow",
+    x: "-10%",
+    y: "-10%",
+    width: "130%",
+    height: "150%",
   });
-  const feDropShadow = svgEl('feDropShadow', {
+  const feDropShadow = svgEl("feDropShadow", {
     dx: 0,
     dy: 1,
     stdDeviation: 1,
-    'flood-color': 'rgba(0,0,0,0.3)',
+    "flood-color": "rgba(0,0,0,0.3)",
   });
   chipShadow.appendChild(feDropShadow);
   defs.appendChild(chipShadow);
 
   // Light drop shadow for node cards
-  const nodeShadow = svgEl('filter', {
-    id: 'node-shadow',
-    x: '-5%',
-    y: '-5%',
-    width: '110%',
-    height: '120%',
+  const nodeShadow = svgEl("filter", {
+    id: "node-shadow",
+    x: "-5%",
+    y: "-5%",
+    width: "110%",
+    height: "120%",
   });
   nodeShadow.appendChild(
-    svgEl('feDropShadow', {
+    svgEl("feDropShadow", {
       dx: 0,
       dy: 1,
       stdDeviation: 2,
-      'flood-color': 'rgba(0,0,0,0.15)',
-    })
+      "flood-color": "rgba(0,0,0,0.15)",
+    }),
   );
   defs.appendChild(nodeShadow);
 
   svg.appendChild(defs);
 
   // Background rect for pan detection
-  const bg = svgEl('rect', {
+  const bg = svgEl("rect", {
     x: bounds.x - 10000,
     y: bounds.y - 10000,
     width: bounds.w + 20000,
     height: bounds.h + 20000,
-    fill: 'transparent',
-    class: 'bg',
+    fill: "transparent",
+    class: "bg",
   });
   svg.appendChild(bg);
 
   // Layers
-  const clusterLayer = svgEl('g', { class: 'clusters' });
-  const edgeLayer = svgEl('g', { class: 'edges' });
-  const nodeLayer = svgEl('g', { class: 'nodes' });
+  const clusterLayer = svgEl("g", { class: "clusters" });
+  const edgeLayer = svgEl("g", { class: "edges" });
+  const nodeLayer = svgEl("g", { class: "nodes" });
   svg.appendChild(clusterLayer);
   svg.appendChild(edgeLayer);
   svg.appendChild(nodeLayer);
@@ -1264,11 +1249,11 @@ export function renderGraph(
 
   // ── Direction Toggle ──
   function toggleDirection(): void {
-    direction = direction === 'TB' ? 'LR' : 'TB';
+    direction = direction === "TB" ? "LR" : "TB";
     relayout();
     panZoom.fitAll();
     // Update toolbar button text
-    const dirBtn = document.getElementById('direction-btn');
+    const dirBtn = document.getElementById("direction-btn");
     if (dirBtn) {
       dirBtn.innerHTML = `Layout: ${direction} <kbd>R</kbd>`;
     }
@@ -1288,15 +1273,15 @@ export function renderGraph(
   };
 
   // ── Context Menu Dismiss ──
-  document.addEventListener('click', () => contextMenu.hide());
-  svg.addEventListener('wheel', () => contextMenu.hide(), { passive: true });
+  document.addEventListener("click", () => contextMenu.hide());
+  svg.addEventListener("wheel", () => contextMenu.hide(), { passive: true });
 
   // ── Keyboard Shortcuts ──
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener("keydown", (e) => {
     // Skip when typing in an input
     const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') {
-      if (e.key === 'Escape') {
+    if (tag === "INPUT" || tag === "TEXTAREA") {
+      if (e.key === "Escape") {
         searchOverlay.hide();
       }
       return;
@@ -1305,17 +1290,17 @@ export function renderGraph(
     // Skip single-key shortcuts when modifier held (preserve Cmd+C, etc.)
     const hasModifier = e.ctrlKey || e.metaKey;
 
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       exitFocus();
       searchOverlay.hide();
       sourcePanel.hide();
       contextMenu.hide();
-      const helpPanel = document.getElementById('help-panel');
-      if (helpPanel) helpPanel.style.display = 'none';
+      const helpPanel = document.getElementById("help-panel");
+      if (helpPanel) helpPanel.style.display = "none";
       return;
     }
 
-    if (e.key === '/' || (e.key === 'k' && (e.ctrlKey || e.metaKey))) {
+    if (e.key === "/" || (e.key === "k" && (e.ctrlKey || e.metaKey))) {
       e.preventDefault();
       searchOverlay.show();
       return;
@@ -1324,58 +1309,58 @@ export function renderGraph(
     if (hasModifier) return;
 
     switch (e.key.toUpperCase()) {
-      case 'F':
+      case "F":
         panZoom.fitAll();
         break;
-      case 'L':
+      case "L":
         (window as any).__toggleLegend?.();
         break;
-      case 'C':
+      case "C":
         collapseAll();
         break;
-      case 'E':
+      case "E":
         expandAll();
         break;
-      case 'R':
+      case "R":
         toggleDirection();
         break;
-      case 'T':
+      case "T":
         (window as any).__toggleTheme?.();
         break;
-      case 'H':
+      case "H":
         (window as any).__toggleHelp?.();
         break;
     }
   });
 
   // ── Double-click Handler (open details panel) ──
-  svg.addEventListener('dblclick', (e: MouseEvent) => {
+  svg.addEventListener("dblclick", (e: MouseEvent) => {
     const target = e.target as Element;
-    const nodeGroup = target.closest('.node-group');
+    const nodeGroup = target.closest(".node-group");
     if (!nodeGroup) return;
-    const nodeId = nodeGroup.getAttribute('data-id');
+    const nodeId = nodeGroup.getAttribute("data-id");
     if (!nodeId) return;
     const node = data.nodes.find((n) => n.id === nodeId);
     if (node?.sourceSnippet) sourcePanel.show(node);
   });
 
   // ── Context Menu Handler (event delegation) ──
-  svg.addEventListener('contextmenu', (e: MouseEvent) => {
+  svg.addEventListener("contextmenu", (e: MouseEvent) => {
     e.preventDefault();
     const target = e.target as Element;
 
-    const nodeGroup = target.closest('.node-group');
+    const nodeGroup = target.closest(".node-group");
     if (nodeGroup) {
-      const nodeId = nodeGroup.getAttribute('data-id');
+      const nodeId = nodeGroup.getAttribute("data-id");
       if (nodeId) {
         contextMenu.show(buildNodeMenuItems(nodeId), e.clientX, e.clientY);
         return;
       }
     }
 
-    const clusterGroup = target.closest('.cluster-group');
+    const clusterGroup = target.closest(".cluster-group");
     if (clusterGroup) {
-      const filePath = clusterGroup.getAttribute('data-filepath');
+      const filePath = clusterGroup.getAttribute("data-filepath");
       if (filePath) {
         contextMenu.show(buildClusterMenuItems(filePath), e.clientX, e.clientY);
         return;
@@ -1389,35 +1374,35 @@ export function renderGraph(
     const node = data.nodes.find((n) => n.id === nodeId);
     const items: ContextMenuItem[] = [
       {
-        icon: '\u{1F50D}',
-        label: 'Focus this node',
+        icon: "\u{1F50D}",
+        label: "Focus this node",
         action: () => focusNode(nodeId),
       },
       {
-        icon: '\u{1F3AF}',
-        label: 'Target this node',
+        icon: "\u{1F3AF}",
+        label: "Target this node",
         action: () => targetNode(nodeId),
       },
       {
-        icon: '\u2195',
-        label: 'Paths through here',
+        icon: "\u2195",
+        label: "Paths through here",
         action: () => pathsThrough(nodeId),
       },
       {
-        icon: '\u{1F441}',
-        label: 'Hide this node',
+        icon: "\u{1F441}",
+        label: "Hide this node",
         action: () => hideNode(nodeId),
       },
       {
-        icon: '\u{1F4CB}',
-        label: 'Copy name',
+        icon: "\u{1F4CB}",
+        label: "Copy name",
         action: () => copyNodeName(nodeId),
       },
     ];
     if (node?.sourceSnippet) {
       items.push({
-        icon: '\u{1F4C4}',
-        label: 'View source',
+        icon: "\u{1F4C4}",
+        label: "View source",
         action: () => sourcePanel.show(node),
       });
     }
@@ -1428,28 +1413,28 @@ export function renderGraph(
     const isCollapsed = collapsedFiles.has(filePath);
     return [
       {
-        icon: isCollapsed ? '\u25b8' : '\u25be',
-        label: isCollapsed ? 'Expand file' : 'Collapse file',
+        icon: isCollapsed ? "\u25b8" : "\u25be",
+        label: isCollapsed ? "Expand file" : "Collapse file",
         action: () => toggleCollapse(filePath),
       },
       {
-        icon: '\u{1F50D}',
-        label: 'Focus this file',
+        icon: "\u{1F50D}",
+        label: "Focus this file",
         action: () => focusFile(filePath),
       },
       {
-        icon: '\u{1F4C1}',
-        label: 'Collapse all others',
+        icon: "\u{1F4C1}",
+        label: "Collapse all others",
         action: () => collapseAllOthers(filePath),
       },
       {
-        icon: '\u{1F3AF}',
-        label: 'Target this file',
+        icon: "\u{1F3AF}",
+        label: "Target this file",
         action: () => targetFile(filePath),
       },
       {
-        icon: '\u{1F441}',
-        label: 'Hide this file',
+        icon: "\u{1F441}",
+        label: "Hide this file",
         action: () => hideFile(filePath),
       },
     ];
@@ -1459,11 +1444,11 @@ export function renderGraph(
   updateToolbarState();
 
   // ── Cluster Click Handling ──
-  clusterLayer.addEventListener('click', (e: MouseEvent) => {
+  clusterLayer.addEventListener("click", (e: MouseEvent) => {
     const target = e.target as Element;
-    const clusterGroup = target.closest('.cluster-group');
+    const clusterGroup = target.closest(".cluster-group");
     if (!clusterGroup) return;
-    const filePath = clusterGroup.getAttribute('data-filepath');
+    const filePath = clusterGroup.getAttribute("data-filepath");
     if (!filePath) return;
 
     e.stopPropagation();
@@ -1503,7 +1488,7 @@ export function renderGraph(
 
   function bfsForward(
     startIds: Iterable<string>,
-    successors: Map<string, Set<string>>
+    successors: Map<string, Set<string>>,
   ): Set<string> {
     const visited = new Set<string>();
     const queue: string[] = [...startIds];
@@ -1518,7 +1503,7 @@ export function renderGraph(
 
   function bfsBackward(
     startIds: Iterable<string>,
-    predecessors: Map<string, Set<string>>
+    predecessors: Map<string, Set<string>>,
   ): Set<string> {
     const visited = new Set<string>();
     const queue: string[] = [...startIds];
@@ -1534,8 +1519,8 @@ export function renderGraph(
   function layoutIdsToOriginal(ids: Set<string>): Set<string> {
     const originalIds = new Set<string>();
     for (const id of ids) {
-      if (id.startsWith('__collapsed:')) {
-        const filePath = id.slice('__collapsed:'.length);
+      if (id.startsWith("__collapsed:")) {
+        const filePath = id.slice("__collapsed:".length);
         for (const n of data.nodes) {
           if (n.filePath === filePath) originalIds.add(n.id);
         }
@@ -1571,8 +1556,7 @@ export function renderGraph(
 
   function computePathsThroughSet(nodeId: string): Set<string> {
     const fullLayout = layoutGraph(data, collapsedFiles);
-    const { predecessors, successors, sourceIds, targetIds } =
-      buildAdjacency(fullLayout);
+    const { predecessors, successors, sourceIds, targetIds } = buildAdjacency(fullLayout);
     const ancestors = bfsBackward([nodeId], predecessors);
     const descendants = bfsForward([nodeId], successors);
     const fromSources = bfsForward(sourceIds, successors);
@@ -1591,15 +1575,13 @@ export function renderGraph(
   // ── Relayout ──
 
   function relayout(): void {
-    let effectiveData = focusedNodeIds
-      ? filterByFocus(data, focusedNodeIds)
-      : data;
+    let effectiveData = focusedNodeIds ? filterByFocus(data, focusedNodeIds) : data;
     effectiveData = filterByHidden(effectiveData, hiddenNodeIds);
     const newLayout = layoutGraph(
       effectiveData,
       collapsedFiles,
       currentLayout.clusterOrder,
-      direction
+      direction,
     );
     currentLayout = newLayout;
     updateLayout(newLayout);
@@ -1622,9 +1604,7 @@ export function renderGraph(
     if (hasCollapsedNode) {
       focusedNodeIds = computeFocusSet(collapsedId);
     } else {
-      const fileNodeIds = data.nodes
-        .filter((n) => n.filePath === filePath)
-        .map((n) => n.id);
+      const fileNodeIds = data.nodes.filter((n) => n.filePath === filePath).map((n) => n.id);
       const union = new Set<string>();
       for (const nid of fileNodeIds) {
         for (const id of computeFocusSet(nid)) {
@@ -1657,9 +1637,7 @@ export function renderGraph(
     if (hasCollapsedNode) {
       focusedNodeIds = computeTargetSet(collapsedId);
     } else {
-      const fileNodeIds = data.nodes
-        .filter((n) => n.filePath === filePath)
-        .map((n) => n.id);
+      const fileNodeIds = data.nodes.filter((n) => n.filePath === filePath).map((n) => n.id);
       const union = new Set<string>();
       for (const nid of fileNodeIds) {
         for (const id of computeTargetSet(nid)) {
@@ -1728,21 +1706,21 @@ export function renderGraph(
   }
 
   function updateToolbarState(): void {
-    const exitBtn = document.getElementById('exit-focus-btn');
+    const exitBtn = document.getElementById("exit-focus-btn");
     if (exitBtn) {
-      exitBtn.style.display = focusedNodeIds ? 'inline-block' : 'none';
+      exitBtn.style.display = focusedNodeIds ? "inline-block" : "none";
     }
-    const hiddenBtn = document.getElementById('show-hidden-btn');
+    const hiddenBtn = document.getElementById("show-hidden-btn");
     if (hiddenBtn) {
       if (hiddenNodeIds.size > 0) {
-        hiddenBtn.style.display = 'inline-block';
+        hiddenBtn.style.display = "inline-block";
         hiddenBtn.textContent = `Show Hidden (${hiddenNodeIds.size})`;
       } else {
-        hiddenBtn.style.display = 'none';
+        hiddenBtn.style.display = "none";
       }
     }
     // Stats badge
-    const statsEl = document.getElementById('stats');
+    const statsEl = document.getElementById("stats");
     if (statsEl) {
       const effectiveData = focusedNodeIds
         ? filterByHidden(filterByFocus(data, focusedNodeIds), hiddenNodeIds)
@@ -1766,22 +1744,22 @@ export function renderGraph(
       const newNode = newNodeMap.get(id);
       if (newNode) {
         // EXISTS in both → animate position
-        el.setAttribute('transform', `translate(${newNode.x}, ${newNode.y})`);
+        el.setAttribute("transform", `translate(${newNode.x}, ${newNode.y})`);
         // Update rect size in case it changed (collapsed group width changes)
-        const rect = el.querySelector('rect');
+        const rect = el.querySelector("rect");
         if (rect) {
-          rect.setAttribute('width', String(newNode.width));
-          rect.setAttribute('height', String(newNode.height));
+          rect.setAttribute("width", String(newNode.width));
+          rect.setAttribute("height", String(newNode.height));
         }
-        const text = el.querySelector('text');
+        const text = el.querySelector("text");
         if (text) {
-          text.setAttribute('x', String(newNode.width / 2));
-          text.setAttribute('y', String(newNode.height / 2 + 4));
+          text.setAttribute("x", String(newNode.width / 2));
+          text.setAttribute("y", String(newNode.height / 2 + 4));
           text.textContent = nodeLabel(newNode);
         }
       } else {
         // REMOVED → fade out, then remove
-        el.style.opacity = '0';
+        el.style.opacity = "0";
         setTimeout(() => {
           el.remove();
           nodeEls.delete(id);
@@ -1793,12 +1771,12 @@ export function renderGraph(
     for (const [id, node] of newNodeMap) {
       if (oldNodeIds.has(id)) continue;
       const g = createNodeEl(node, tooltip);
-      g.style.opacity = '0';
+      g.style.opacity = "0";
       nodeLayer.appendChild(g);
       nodeEls.set(id, g);
       // Fade in next frame
       requestAnimationFrame(() => {
-        g.style.opacity = '1';
+        g.style.opacity = "1";
       });
     }
 
@@ -1814,26 +1792,26 @@ export function renderGraph(
       if (newEdge) {
         // EXISTS in both → update all paths (hitbox + visible)
         const newPath = buildOrthogonalPath(newEdge.waypoints);
-        for (const path of el.querySelectorAll('path')) {
-          path.setAttribute('d', newPath);
+        for (const path of el.querySelectorAll("path")) {
+          path.setAttribute("d", newPath);
         }
         // Update label positions to match new waypoints
-        const texts = el.querySelectorAll('text');
+        const texts = el.querySelectorAll("text");
         let ti = 0;
         if (edgeLabel(newEdge.kind) && newEdge.waypoints.length >= 2 && ti < texts.length) {
           const mid = newEdge.waypoints[Math.floor(newEdge.waypoints.length / 2)];
-          texts[ti].setAttribute('x', String(mid.x + 4));
-          texts[ti].setAttribute('y', String(mid.y - 4));
+          texts[ti].setAttribute("x", String(mid.x + 4));
+          texts[ti].setAttribute("y", String(mid.y - 4));
           ti++;
         }
         if (newEdge.waypoints.length >= 2 && ti < texts.length) {
           const wp = newEdge.waypoints[0];
-          texts[ti].setAttribute('x', String(wp.x + 4));
-          texts[ti].setAttribute('y', String(wp.y + 4));
+          texts[ti].setAttribute("x", String(wp.x + 4));
+          texts[ti].setAttribute("y", String(wp.y + 4));
         }
       } else {
         // REMOVED → fade out, then remove
-        el.style.opacity = '0';
+        el.style.opacity = "0";
         setTimeout(() => {
           el.remove();
           edgeEls.delete(key);
@@ -1844,11 +1822,11 @@ export function renderGraph(
     for (const [key, edge] of newEdgeMap) {
       if (oldEdgeKeys.has(key)) continue;
       const g = createEdgeEl(edge, edgeTooltip, edgeLookup);
-      g.style.opacity = '0';
+      g.style.opacity = "0";
       edgeLayer.appendChild(g);
       edgeEls.set(key, g);
       requestAnimationFrame(() => {
-        g.style.opacity = '1';
+        g.style.opacity = "1";
       });
     }
 
@@ -1863,23 +1841,20 @@ export function renderGraph(
       const newCluster = newClusterMap.get(fp);
       if (newCluster) {
         // EXISTS in both → update position, size, label
-        el.setAttribute(
-          'transform',
-          `translate(${newCluster.x}, ${newCluster.y})`
-        );
-        const rect = el.querySelector('rect');
+        el.setAttribute("transform", `translate(${newCluster.x}, ${newCluster.y})`);
+        const rect = el.querySelector("rect");
         if (rect) {
-          rect.setAttribute('width', String(newCluster.width));
-          rect.setAttribute('height', String(newCluster.height));
+          rect.setAttribute("width", String(newCluster.width));
+          rect.setAttribute("height", String(newCluster.height));
         }
-        const label = el.querySelector('.cluster-label');
+        const label = el.querySelector(".cluster-label");
         if (label) {
-          const indicator = collapsedFiles.has(fp) ? '\u25b8' : '\u25be';
+          const indicator = collapsedFiles.has(fp) ? "\u25b8" : "\u25be";
           label.textContent = `${indicator} ${fileName(fp)}`;
         }
       } else {
         // REMOVED → fade out, then remove
-        el.style.opacity = '0';
+        el.style.opacity = "0";
         setTimeout(() => {
           el.remove();
           clusterEls.delete(fp);
@@ -1890,11 +1865,11 @@ export function renderGraph(
     for (const [fp, cluster] of newClusterMap) {
       if (oldClusterKeys.has(fp)) continue;
       const g = createClusterEl(cluster, collapsedFiles.has(fp), getOwners(fp));
-      g.style.opacity = '0';
+      g.style.opacity = "0";
       clusterLayer.appendChild(g);
       clusterEls.set(fp, g);
       requestAnimationFrame(() => {
-        g.style.opacity = '1';
+        g.style.opacity = "1";
       });
     }
 

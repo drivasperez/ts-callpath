@@ -1,11 +1,4 @@
-import type {
-  GraphData,
-  GraphNode,
-  LayoutDirection,
-  LayoutNode,
-  LayoutEdge,
-  LayoutCluster,
-} from './types.js';
+import type { GraphData, GraphNode, LayoutDirection, LayoutEdge, LayoutCluster } from "./types.js";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -28,7 +21,7 @@ export const BLACK = 2;
 export function detectBackedges(
   nodeIds: string[],
   edges: Array<{ from: string; to: string }>,
-  sourceNodes: Set<string>
+  sourceNodes: Set<string>,
 ): Set<number> {
   const backedges = new Set<number>();
   const color = new Map<string, number>();
@@ -76,7 +69,7 @@ export function detectBackedges(
 
 export function assignLayers(
   nodeIds: string[],
-  dagEdges: Array<{ from: string; to: string }>
+  dagEdges: Array<{ from: string; to: string }>,
 ): Map<string, number> {
   // Compute in-degrees
   const inDegree = new Map<string, number>();
@@ -135,7 +128,7 @@ export interface InternalEdge {
 
 export function createDummyNodes(
   nodes: Map<string, InternalNode>,
-  edges: InternalEdge[]
+  edges: InternalEdge[],
 ): { nodes: Map<string, InternalNode>; edges: InternalEdge[] } {
   const newNodes = new Map(nodes);
   const newEdges: InternalEdge[] = [];
@@ -196,7 +189,7 @@ export function orderNodes(
   nodes: Map<string, InternalNode>,
   edges: InternalEdge[],
   maxLayer: number,
-  previousClusterOrder?: string[]
+  previousClusterOrder?: string[],
 ): Map<string, number> {
   // Build layers
   const layers: string[][] = [];
@@ -256,10 +249,7 @@ export function orderNodes(
       refPositions.set(refLayer[i], i);
     }
 
-    const neighbors = [
-      ...(predecessors.get(nodeId) ?? []),
-      ...(successorsList.get(nodeId) ?? []),
-    ];
+    const neighbors = [...(predecessors.get(nodeId) ?? []), ...(successorsList.get(nodeId) ?? [])];
     const positions = neighbors
       .map((n) => refPositions.get(n))
       .filter((p): p is number => p !== undefined);
@@ -282,14 +272,14 @@ export function orderNodes(
           layers[l],
           refLayer,
           predecessors,
-          nodes
+          nodes,
         );
         const clusterBaryB = clusterBarycenter(
           nb.filePath,
           layers[l],
           refLayer,
           predecessors,
-          nodes
+          nodes,
         );
         if (clusterBaryA !== clusterBaryB) return clusterBaryA - clusterBaryB;
         const fileCmp = na.filePath.localeCompare(nb.filePath);
@@ -308,14 +298,14 @@ export function orderNodes(
           layers[l],
           refLayer,
           successorsList,
-          nodes
+          nodes,
         );
         const clusterBaryB = clusterBarycenter(
           nb.filePath,
           layers[l],
           refLayer,
           successorsList,
-          nodes
+          nodes,
         );
         if (clusterBaryA !== clusterBaryB) return clusterBaryA - clusterBaryB;
         const fileCmp = na.filePath.localeCompare(nb.filePath);
@@ -340,7 +330,7 @@ export function clusterBarycenter(
   currentLayer: string[],
   refLayer: string[],
   neighbors: Map<string, string[]>,
-  nodes: Map<string, InternalNode>
+  nodes: Map<string, InternalNode>,
 ): number {
   // Average barycenter of all nodes in the same file-cluster in this layer
   const refPositions = new Map<string, number>();
@@ -365,8 +355,8 @@ export function clusterBarycenter(
 
 export function estimateNodeWidth(node: InternalNode): number {
   if (node.isDummy) return 0;
-  if (node.id.startsWith('__collapsed:')) {
-    const fileName = node.filePath.split('/').pop() ?? node.filePath;
+  if (node.id.startsWith("__collapsed:")) {
+    const fileName = node.filePath.split("/").pop() ?? node.filePath;
     const label = `${fileName} (${node.collapsedCount ?? 0})`;
     return label.length * CHAR_WIDTH + NODE_PADDING_X * 2;
   }
@@ -391,9 +381,9 @@ export function assignCoordinates(
   order: Map<string, number>,
   maxLayer: number,
   previousClusterOrder?: string[],
-  direction: LayoutDirection = 'LR'
+  direction: LayoutDirection = "LR",
 ): { positioned: PositionedNode[]; clusterOrder: string[] } {
-  const isLR = direction === 'LR';
+  const isLR = direction === "LR";
 
   // Axis mapping helpers:
   // "flow" = direction layers progress (TB → Y, LR → X)
@@ -404,7 +394,7 @@ export function assignCoordinates(
   const layerFlowSize = (n: InternalNode): number =>
     isLR ? Math.max(estimateNodeWidth(n), 4) : NODE_HEIGHT;
   const nodeFlowSize = (n: InternalNode): number =>
-    isLR ? Math.max(estimateNodeWidth(n), 4) : (n.isDummy ? 0 : NODE_HEIGHT);
+    isLR ? Math.max(estimateNodeWidth(n), 4) : n.isDummy ? 0 : NODE_HEIGHT;
   const nodeCrossSize = (n: InternalNode): number =>
     isLR ? (n.isDummy ? 0 : NODE_HEIGHT) : Math.max(estimateNodeWidth(n), 4);
   // Cross-axis label reservation (only needed when clusters stack along Y, i.e. LR)
@@ -507,7 +497,8 @@ export function assignCoordinates(
   let accCross = CLUSTER_PADDING + crossLabelSpace;
   for (const fp of clusterOrder) {
     clusterCrossPos.set(fp, accCross);
-    accCross += (maxClusterCross.get(fp) ?? 0) + CLUSTER_PADDING * 2 + crossLabelSpace + CLUSTER_GAP;
+    accCross +=
+      (maxClusterCross.get(fp) ?? 0) + CLUSTER_PADDING * 2 + crossLabelSpace + CLUSTER_GAP;
   }
 
   // Step 7: Position nodes
@@ -593,18 +584,16 @@ export function assignCoordinates(
 export function routeEdges(
   edges: InternalEdge[],
   positionedNodes: Map<string, PositionedNode>,
-  direction: LayoutDirection = 'LR'
+  direction: LayoutDirection = "LR",
 ): LayoutEdge[] {
-  const isLR = direction === 'LR';
+  const isLR = direction === "LR";
 
   // Direction-agnostic accessors for positioned nodes:
   // flow exit = where edges leave (TB: bottom, LR: right)
   // flow enter = where edges arrive (TB: top, LR: left)
   // cross center = perpendicular center (TB: x center, LR: y center)
-  const flowEnd = (n: PositionedNode): number =>
-    isLR ? n.x + n.width : n.y + n.height;
-  const flowStart = (n: PositionedNode): number =>
-    isLR ? n.x : n.y;
+  const flowEnd = (n: PositionedNode): number => (isLR ? n.x + n.width : n.y + n.height);
+  const flowStart = (n: PositionedNode): number => (isLR ? n.x : n.y);
   const crossCenter = (n: PositionedNode): number =>
     isLR ? n.y + n.height / 2 : n.x + n.width / 2;
   const toXY = (flow: number, cross: number): { x: number; y: number } =>
@@ -690,8 +679,8 @@ export function routeEdges(
         const tgtLayerStart = layerFlowStartMap.get(tgtNode.layer) ?? tgtFlowEntry;
         const track = srcLayerEnd + (tgtLayerStart - srcLayerEnd) / 2;
 
-        waypoints.push(toXY(track, srcCross));  // along flow to track
-        waypoints.push(toXY(track, tgtCross));  // along cross to target
+        waypoints.push(toXY(track, srcCross)); // along flow to track
+        waypoints.push(toXY(track, tgtCross)); // along cross to target
         waypoints.push(toXY(tgtFlowEntry, tgtCross)); // along flow to entry
       }
     }
@@ -700,11 +689,7 @@ export function routeEdges(
     const deduped: Array<{ x: number; y: number }> = [];
     for (const wp of waypoints) {
       const last = deduped[deduped.length - 1];
-      if (
-        last &&
-        Math.abs(last.x - wp.x) < 0.5 &&
-        Math.abs(last.y - wp.y) < 0.5
-      ) {
+      if (last && Math.abs(last.x - wp.x) < 0.5 && Math.abs(last.y - wp.y) < 0.5) {
         continue;
       }
       deduped.push(wp);
@@ -729,7 +714,7 @@ export function routeEdges(
 function _routeBackedgeTB(
   fromNode: PositionedNode,
   toNode: PositionedNode,
-  allNodes: Map<string, PositionedNode>
+  allNodes: Map<string, PositionedNode>,
 ): Array<{ x: number; y: number }> {
   // Route backedge: right side of source → right → up → into target top
   let maxX = 0;
@@ -755,7 +740,7 @@ function _routeBackedgeTB(
 function _routeBackedgeLR(
   fromNode: PositionedNode,
   toNode: PositionedNode,
-  allNodes: Map<string, PositionedNode>
+  allNodes: Map<string, PositionedNode>,
 ): Array<{ x: number; y: number }> {
   // Route backedge: bottom of source → down → horizontal → up → into target bottom
   let maxY = 0;
@@ -819,7 +804,7 @@ export function computeClusters(positioned: PositionedNode[]): LayoutCluster[] {
 
 export function preprocessCollapsed(
   data: GraphData,
-  collapsedFiles: Set<string>
+  collapsedFiles: Set<string>,
 ): { data: GraphData; collapsedCounts: Map<string, number> } {
   const collapsedCounts = new Map<string, number>();
 
@@ -837,7 +822,7 @@ export function preprocessCollapsed(
     syntheticNodes.push({
       id: `__collapsed:${filePath}`,
       filePath,
-      qualifiedName: filePath.split('/').pop() ?? filePath,
+      qualifiedName: filePath.split("/").pop() ?? filePath,
       line: 0,
       isInstrumented: fileNodes.some((n) => n.isInstrumented),
       isSource: fileNodes.some((n) => n.isSource),
@@ -845,10 +830,7 @@ export function preprocessCollapsed(
     });
   }
 
-  const newNodes = [
-    ...data.nodes.filter((n) => !removedNodeIds.has(n.id)),
-    ...syntheticNodes,
-  ];
+  const newNodes = [...data.nodes.filter((n) => !removedNodeIds.has(n.id)), ...syntheticNodes];
 
   // Remap edges
   const nodeToSynthetic = new Map<string, string>();

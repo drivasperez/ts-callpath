@@ -1,332 +1,291 @@
-import { describe, it, expect } from 'vitest';
-import { parseSource } from '../parser.js';
+import { describe, it, expect } from "vitest";
+import { parseSource } from "../parser.js";
 
-describe('parseSource - function declarations', () => {
-  it('extracts a named function declaration', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `function hello() { return 1; }`
-    );
+describe("parseSource - function declarations", () => {
+  it("extracts a named function declaration", () => {
+    const parsed = parseSource("/test/file.ts", `function hello() { return 1; }`);
     expect(parsed.functions).toHaveLength(1);
-    expect(parsed.functions[0].qualifiedName).toBe('hello');
+    expect(parsed.functions[0].qualifiedName).toBe("hello");
     expect(parsed.functions[0].isInstrumented).toBe(false);
   });
 
-  it('extracts exported function declarations', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `export function greet() { return "hi"; }`
-    );
+  it("extracts exported function declarations", () => {
+    const parsed = parseSource("/test/file.ts", `export function greet() { return "hi"; }`);
     expect(parsed.functions).toHaveLength(1);
-    expect(parsed.exportedNames.get('greet')).toBe('greet');
+    expect(parsed.exportedNames.get("greet")).toBe("greet");
   });
 });
 
-describe('parseSource - arrow functions', () => {
-  it('extracts arrow function variable declarations', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `const add = (a: number, b: number) => a + b;`
-    );
+describe("parseSource - arrow functions", () => {
+  it("extracts arrow function variable declarations", () => {
+    const parsed = parseSource("/test/file.ts", `const add = (a: number, b: number) => a + b;`);
     expect(parsed.functions).toHaveLength(1);
-    expect(parsed.functions[0].qualifiedName).toBe('add');
+    expect(parsed.functions[0].qualifiedName).toBe("add");
     expect(parsed.functions[0].isInstrumented).toBe(false);
   });
 
-  it('extracts exported arrow functions', () => {
+  it("extracts exported arrow functions", () => {
     const parsed = parseSource(
-      '/test/file.ts',
-      `export const multiply = (a: number, b: number) => a * b;`
+      "/test/file.ts",
+      `export const multiply = (a: number, b: number) => a * b;`,
     );
     expect(parsed.functions).toHaveLength(1);
-    expect(parsed.exportedNames.get('multiply')).toBe('multiply');
+    expect(parsed.exportedNames.get("multiply")).toBe("multiply");
   });
 });
 
-describe('parseSource - class methods', () => {
-  it('extracts instance methods', () => {
+describe("parseSource - class methods", () => {
+  it("extracts instance methods", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class Foo {
         bar() { return 1; }
         baz() { return 2; }
-      }`
+      }`,
     );
     const names = parsed.functions.map((f) => f.qualifiedName);
-    expect(names).toContain('Foo.bar');
-    expect(names).toContain('Foo.baz');
+    expect(names).toContain("Foo.bar");
+    expect(names).toContain("Foo.baz");
   });
 
-  it('extracts static methods', () => {
+  it("extracts static methods", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class MyService {
         static create() { return new MyService(); }
-      }`
+      }`,
     );
     expect(parsed.functions).toHaveLength(1);
-    expect(parsed.functions[0].qualifiedName).toBe('MyService.create');
+    expect(parsed.functions[0].qualifiedName).toBe("MyService.create");
   });
 
-  it('extracts constructor call sites', () => {
+  it("extracts constructor call sites", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class MyService {
         constructor() { init(); setup(); }
         process() { run(); }
-      }`
+      }`,
     );
     const names = parsed.functions.map((f) => f.qualifiedName);
-    expect(names).toContain('MyService.constructor');
-    expect(names).toContain('MyService.process');
-    const ctorFn = parsed.functions.find(
-      (f) => f.qualifiedName === 'MyService.constructor'
-    );
-    const callNames = ctorFn!.callSites
-      .map((c) => c.calleeName)
-      .filter(Boolean);
-    expect(callNames).toContain('init');
-    expect(callNames).toContain('setup');
+    expect(names).toContain("MyService.constructor");
+    expect(names).toContain("MyService.process");
+    const ctorFn = parsed.functions.find((f) => f.qualifiedName === "MyService.constructor");
+    const callNames = ctorFn!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain("init");
+    expect(callNames).toContain("setup");
   });
 
-  it('extracts getter and setter call sites', () => {
+  it("extracts getter and setter call sites", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class Config {
         get value() { return compute(); }
         set value(v: string) { validate(v); }
-      }`
+      }`,
     );
     const names = parsed.functions.map((f) => f.qualifiedName);
-    expect(names).toContain('Config.get value');
-    expect(names).toContain('Config.set value');
-    const getter = parsed.functions.find(
-      (f) => f.qualifiedName === 'Config.get value'
-    );
-    expect(
-      getter!.callSites.map((c) => c.calleeName).filter(Boolean)
-    ).toContain('compute');
-    const setter = parsed.functions.find(
-      (f) => f.qualifiedName === 'Config.set value'
-    );
-    expect(
-      setter!.callSites.map((c) => c.calleeName).filter(Boolean)
-    ).toContain('validate');
+    expect(names).toContain("Config.get value");
+    expect(names).toContain("Config.set value");
+    const getter = parsed.functions.find((f) => f.qualifiedName === "Config.get value");
+    expect(getter!.callSites.map((c) => c.calleeName).filter(Boolean)).toContain("compute");
+    const setter = parsed.functions.find((f) => f.qualifiedName === "Config.set value");
+    expect(setter!.callSites.map((c) => c.calleeName).filter(Boolean)).toContain("validate");
   });
 
-  it('marks class exported in exportedNames', () => {
+  it("marks class exported in exportedNames", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `export class Worker {
         process() {}
-      }`
+      }`,
     );
-    expect(parsed.exportedNames.get('Worker')).toBe('Worker');
+    expect(parsed.exportedNames.get("Worker")).toBe("Worker");
   });
 });
 
-describe('parseSource - imports', () => {
-  it('extracts named imports', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `import { foo, bar } from './utils';`
-    );
+describe("parseSource - imports", () => {
+  it("extracts named imports", () => {
+    const parsed = parseSource("/test/file.ts", `import { foo, bar } from './utils';`);
     expect(parsed.imports).toHaveLength(2);
     expect(parsed.imports[0]).toMatchObject({
-      localName: 'foo',
-      importedName: 'foo',
-      moduleSpecifier: './utils',
+      localName: "foo",
+      importedName: "foo",
+      moduleSpecifier: "./utils",
       isNamespace: false,
     });
     expect(parsed.imports[1]).toMatchObject({
-      localName: 'bar',
-      importedName: 'bar',
-      moduleSpecifier: './utils',
+      localName: "bar",
+      importedName: "bar",
+      moduleSpecifier: "./utils",
       isNamespace: false,
     });
   });
 
-  it('extracts default imports', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `import MyDefault from './module';`
-    );
+  it("extracts default imports", () => {
+    const parsed = parseSource("/test/file.ts", `import MyDefault from './module';`);
     expect(parsed.imports).toHaveLength(1);
     expect(parsed.imports[0]).toMatchObject({
-      localName: 'MyDefault',
-      importedName: 'default',
+      localName: "MyDefault",
+      importedName: "default",
       isNamespace: false,
     });
   });
 
-  it('extracts namespace imports', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `import * as utils from './utils';`
-    );
+  it("extracts namespace imports", () => {
+    const parsed = parseSource("/test/file.ts", `import * as utils from './utils';`);
     expect(parsed.imports).toHaveLength(1);
     expect(parsed.imports[0]).toMatchObject({
-      localName: 'utils',
-      importedName: '*',
+      localName: "utils",
+      importedName: "*",
       isNamespace: true,
     });
   });
 
-  it('extracts aliased imports', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `import { original as renamed } from './mod';`
-    );
+  it("extracts aliased imports", () => {
+    const parsed = parseSource("/test/file.ts", `import { original as renamed } from './mod';`);
     expect(parsed.imports).toHaveLength(1);
     expect(parsed.imports[0]).toMatchObject({
-      localName: 'renamed',
-      importedName: 'original',
+      localName: "renamed",
+      importedName: "original",
     });
   });
 });
 
-describe('parseSource - re-exports', () => {
-  it('extracts re-exports', () => {
-    const parsed = parseSource('/test/file.ts', `export { foo } from './bar';`);
+describe("parseSource - re-exports", () => {
+  it("extracts re-exports", () => {
+    const parsed = parseSource("/test/file.ts", `export { foo } from './bar';`);
     expect(parsed.reExports).toHaveLength(1);
     expect(parsed.reExports[0]).toMatchObject({
-      exportedName: 'foo',
-      importedName: 'foo',
-      moduleSpecifier: './bar',
+      exportedName: "foo",
+      importedName: "foo",
+      moduleSpecifier: "./bar",
     });
-    expect(parsed.exportedNames.get('foo')).toBe('foo');
+    expect(parsed.exportedNames.get("foo")).toBe("foo");
   });
 
-  it('extracts aliased re-exports', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `export { original as renamed } from './source';`
-    );
+  it("extracts aliased re-exports", () => {
+    const parsed = parseSource("/test/file.ts", `export { original as renamed } from './source';`);
     expect(parsed.reExports).toHaveLength(1);
     expect(parsed.reExports[0]).toMatchObject({
-      exportedName: 'renamed',
-      importedName: 'original',
-      moduleSpecifier: './source',
+      exportedName: "renamed",
+      importedName: "original",
+      moduleSpecifier: "./source",
     });
   });
 });
 
-describe('parseSource - call sites', () => {
-  it('extracts simple function calls', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `function main() { foo(); bar(); }`
-    );
+describe("parseSource - call sites", () => {
+  it("extracts simple function calls", () => {
+    const parsed = parseSource("/test/file.ts", `function main() { foo(); bar(); }`);
     const callSites = parsed.functions[0].callSites;
-    const names = callSites
-      .filter((c) => c.calleeName)
-      .map((c) => c.calleeName);
-    expect(names).toContain('foo');
-    expect(names).toContain('bar');
+    const names = callSites.filter((c) => c.calleeName).map((c) => c.calleeName);
+    expect(names).toContain("foo");
+    expect(names).toContain("bar");
   });
 
-  it('extracts property access calls', () => {
+  it("extracts property access calls", () => {
     const parsed = parseSource(
-      '/test/file.ts',
-      `function main() { X.doStuff(); console.log("hi"); }`
+      "/test/file.ts",
+      `function main() { X.doStuff(); console.log("hi"); }`,
     );
     const callSites = parsed.functions[0].callSites;
     const propCalls = callSites.filter((c) => c.objectName);
     expect(propCalls).toContainEqual(
-      expect.objectContaining({ objectName: 'X', propertyName: 'doStuff' })
+      expect.objectContaining({ objectName: "X", propertyName: "doStuff" }),
     );
     expect(propCalls).toContainEqual(
-      expect.objectContaining({ objectName: 'console', propertyName: 'log' })
+      expect.objectContaining({ objectName: "console", propertyName: "log" }),
     );
   });
 
-  it('extracts call sites inside arrow function callbacks', () => {
+  it("extracts call sites inside arrow function callbacks", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function main() {
         items.map((item) => transform(item));
-      }`
+      }`,
     );
     const callSites = parsed.functions[0].callSites;
     const names = callSites.map((c) => c.calleeName).filter(Boolean);
-    expect(names).toContain('transform');
+    expect(names).toContain("transform");
   });
 
-  it('extracts call sites inside block-body arrow callbacks', () => {
+  it("extracts call sites inside block-body arrow callbacks", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function main() {
         items.forEach((item) => {
           process(item);
           finalize(item);
         });
-      }`
+      }`,
     );
     const callSites = parsed.functions[0].callSites;
     const names = callSites.map((c) => c.calleeName).filter(Boolean);
-    expect(names).toContain('process');
-    expect(names).toContain('finalize');
+    expect(names).toContain("process");
+    expect(names).toContain("finalize");
   });
 });
 
-describe('parseSource - DI defaults', () => {
-  it('extracts DI defaults with property access pattern', () => {
+describe("parseSource - DI defaults", () => {
+  it("extracts DI defaults with property access pattern", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function doWork(deps = { service: RealService.run }) {
         deps.service();
-      }`
+      }`,
     );
     const fn = parsed.functions[0];
     expect(fn.diDefaults).toHaveLength(1);
     expect(fn.diDefaults[0]).toMatchObject({
-      paramName: 'deps',
-      propName: 'service',
-      objectRef: 'RealService',
-      methodRef: 'run',
+      paramName: "deps",
+      propName: "service",
+      objectRef: "RealService",
+      methodRef: "run",
     });
   });
 
-  it('extracts DI defaults with simple identifier', () => {
+  it("extracts DI defaults with simple identifier", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function doWork(deps = { helper: realHelper }) {
         deps.helper();
-      }`
+      }`,
     );
     const fn = parsed.functions[0];
     expect(fn.diDefaults).toHaveLength(1);
     expect(fn.diDefaults[0]).toMatchObject({
-      paramName: 'deps',
-      propName: 'helper',
-      localRef: 'realHelper',
+      paramName: "deps",
+      propName: "helper",
+      localRef: "realHelper",
     });
   });
 });
 
-describe('parseSource - instrumentFn wrappers', () => {
-  it('recognizes instrumentFn and sets isInstrumented', () => {
+describe("parseSource - instrumentFn wrappers", () => {
+  it("recognizes instrumentFn and sets isInstrumented", () => {
     const parsed = parseSource(
-      '/test/file.ts',
-      `const myFunc = instrumentFn(async function myFunc() { doSomething(); });`
+      "/test/file.ts",
+      `const myFunc = instrumentFn(async function myFunc() { doSomething(); });`,
     );
     expect(parsed.functions).toHaveLength(1);
-    expect(parsed.functions[0].qualifiedName).toBe('myFunc');
+    expect(parsed.functions[0].qualifiedName).toBe("myFunc");
     expect(parsed.functions[0].isInstrumented).toBe(true);
   });
 });
 
-describe('parseSource - instrumentOwnMethodsInPlace', () => {
-  it('marks class methods as instrumented', () => {
+describe("parseSource - instrumentOwnMethodsInPlace", () => {
+  it("marks class methods as instrumented", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class MyService {
         doWork() { return 1; }
         doOther() { return 2; }
       }
-      instrumentOwnMethodsInPlace(MyService);`
+      instrumentOwnMethodsInPlace(MyService);`,
     );
-    const methods = parsed.functions.filter(f => f.qualifiedName !== '<module>');
+    const methods = parsed.functions.filter((f) => f.qualifiedName !== "<module>");
     expect(methods).toHaveLength(2);
     for (const fn of methods) {
       expect(fn.isInstrumented).toBe(true);
@@ -334,301 +293,274 @@ describe('parseSource - instrumentOwnMethodsInPlace', () => {
   });
 });
 
-describe('parseSource - exported names', () => {
-  it('tracks local export { x, y } correctly', () => {
+describe("parseSource - exported names", () => {
+  it("tracks local export { x, y } correctly", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function a() {}
       function b() {}
-      export { a, b };`
+      export { a, b };`,
     );
-    expect(parsed.exportedNames.get('a')).toBe('a');
-    expect(parsed.exportedNames.get('b')).toBe('b');
+    expect(parsed.exportedNames.get("a")).toBe("a");
+    expect(parsed.exportedNames.get("b")).toBe("b");
   });
 
-  it('tracks aliased local exports', () => {
+  it("tracks aliased local exports", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function internal() {}
-      export { internal as external };`
+      export { internal as external };`,
     );
-    expect(parsed.exportedNames.get('external')).toBe('internal');
+    expect(parsed.exportedNames.get("external")).toBe("internal");
   });
 
-  it('tracks export default assignment', () => {
+  it("tracks export default assignment", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function main() {}
-      export default main;`
+      export default main;`,
     );
-    expect(parsed.exportedNames.get('default')).toBe('main');
+    expect(parsed.exportedNames.get("default")).toBe("main");
   });
 });
 
-describe('parseSource - JSDoc descriptions', () => {
-  it('extracts JSDoc description from a function declaration', () => {
+describe("parseSource - JSDoc descriptions", () => {
+  it("extracts JSDoc description from a function declaration", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `/** Greets the user warmly. */
-      function greet() { return "hi"; }`
+      function greet() { return "hi"; }`,
     );
-    expect(parsed.functions[0].description).toBe('Greets the user warmly.');
+    expect(parsed.functions[0].description).toBe("Greets the user warmly.");
   });
 
-  it('extracts JSDoc description from an arrow function', () => {
+  it("extracts JSDoc description from an arrow function", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `/** Adds two numbers. */
-      const add = (a: number, b: number) => a + b;`
+      const add = (a: number, b: number) => a + b;`,
     );
-    expect(parsed.functions[0].description).toBe('Adds two numbers.');
+    expect(parsed.functions[0].description).toBe("Adds two numbers.");
   });
 
-  it('extracts JSDoc description from a class method', () => {
+  it("extracts JSDoc description from a class method", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class Foo {
         /** Does the work. */
         bar() { return 1; }
-      }`
+      }`,
     );
-    expect(parsed.functions[0].description).toBe('Does the work.');
+    expect(parsed.functions[0].description).toBe("Does the work.");
   });
 
-  it('returns undefined when no JSDoc is present', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `function noDoc() { return 1; }`
-    );
+  it("returns undefined when no JSDoc is present", () => {
+    const parsed = parseSource("/test/file.ts", `function noDoc() { return 1; }`);
     expect(parsed.functions[0].description).toBeUndefined();
   });
 
-  it('extracts only description text, not @param/@returns tags', () => {
+  it("extracts only description text, not @param/@returns tags", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `/**
        * Computes the sum.
        * @param a - first number
        * @param b - second number
        * @returns the sum
        */
-      function sum(a: number, b: number) { return a + b; }`
+      function sum(a: number, b: number) { return a + b; }`,
     );
-    expect(parsed.functions[0].description).toBe('Computes the sum.');
+    expect(parsed.functions[0].description).toBe("Computes the sum.");
   });
 
-  it('extracts JSDoc from a class property arrow function', () => {
+  it("extracts JSDoc from a class property arrow function", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class Svc {
         /** Runs the process. */
         run = () => { return 1; };
-      }`
+      }`,
     );
-    const fn = parsed.functions.find((f) => f.qualifiedName === 'Svc.run');
-    expect(fn?.description).toBe('Runs the process.');
+    const fn = parsed.functions.find((f) => f.qualifiedName === "Svc.run");
+    expect(fn?.description).toBe("Runs the process.");
   });
 
-  it('extracts JSDoc from an object literal method', () => {
+  it("extracts JSDoc from an object literal method", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `const Utils = {
         /** Formats a string. */
         format(s: string) { return s.trim(); }
-      };`
+      };`,
     );
-    const fn = parsed.functions.find((f) => f.qualifiedName === 'Utils.format');
-    expect(fn?.description).toBe('Formats a string.');
+    const fn = parsed.functions.find((f) => f.qualifiedName === "Utils.format");
+    expect(fn?.description).toBe("Formats a string.");
   });
 
-  it('extracts JSDoc from an object literal arrow property', () => {
+  it("extracts JSDoc from an object literal arrow property", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `const Utils = {
         /** Computes double. */
         double: (x: number) => x * 2,
-      };`
+      };`,
     );
-    const fn = parsed.functions.find((f) => f.qualifiedName === 'Utils.double');
-    expect(fn?.description).toBe('Computes double.');
+    const fn = parsed.functions.find((f) => f.qualifiedName === "Utils.double");
+    expect(fn?.description).toBe("Computes double.");
   });
 });
 
-describe('parseSource - object property bindings', () => {
-  it('extracts shorthand properties from Object.freeze', () => {
+describe("parseSource - object property bindings", () => {
+  it("extracts shorthand properties from Object.freeze", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function loadById() { return 1; }
       function loadMany() { return 2; }
-      const FKLoader = Object.freeze({ loadById, loadMany });`
+      const FKLoader = Object.freeze({ loadById, loadMany });`,
     );
-    expect(parsed.objectPropertyBindings.get('FKLoader.loadById')).toBe(
-      'loadById'
-    );
-    expect(parsed.objectPropertyBindings.get('FKLoader.loadMany')).toBe(
-      'loadMany'
-    );
+    expect(parsed.objectPropertyBindings.get("FKLoader.loadById")).toBe("loadById");
+    expect(parsed.objectPropertyBindings.get("FKLoader.loadMany")).toBe("loadMany");
   });
 
-  it('extracts inline method definitions from Object.freeze', () => {
+  it("extracts inline method definitions from Object.freeze", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `const MartaLoader = Object.freeze({
         async load(id: string) { return fetch(id); },
         process(data: any) { return data; }
-      });`
+      });`,
     );
-    expect(parsed.objectPropertyBindings.get('MartaLoader.load')).toBe(
-      'MartaLoader.load'
-    );
-    expect(parsed.objectPropertyBindings.get('MartaLoader.process')).toBe(
-      'MartaLoader.process'
-    );
+    expect(parsed.objectPropertyBindings.get("MartaLoader.load")).toBe("MartaLoader.load");
+    expect(parsed.objectPropertyBindings.get("MartaLoader.process")).toBe("MartaLoader.process");
     const names = parsed.functions.map((f) => f.qualifiedName);
-    expect(names).toContain('MartaLoader.load');
-    expect(names).toContain('MartaLoader.process');
+    expect(names).toContain("MartaLoader.load");
+    expect(names).toContain("MartaLoader.process");
   });
 
-  it('extracts inline arrow function properties', () => {
+  it("extracts inline arrow function properties", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `const Utils = Object.freeze({
         compute: (x: number) => x * 2,
         format: (s: string) => { return s.trim(); }
-      });`
+      });`,
     );
-    expect(parsed.objectPropertyBindings.get('Utils.compute')).toBe(
-      'Utils.compute'
-    );
-    expect(parsed.objectPropertyBindings.get('Utils.format')).toBe(
-      'Utils.format'
-    );
+    expect(parsed.objectPropertyBindings.get("Utils.compute")).toBe("Utils.compute");
+    expect(parsed.objectPropertyBindings.get("Utils.format")).toBe("Utils.format");
     const names = parsed.functions.map((f) => f.qualifiedName);
-    expect(names).toContain('Utils.compute');
-    expect(names).toContain('Utils.format');
+    expect(names).toContain("Utils.compute");
+    expect(names).toContain("Utils.format");
   });
 
-  it('extracts non-shorthand identifier properties', () => {
+  it("extracts non-shorthand identifier properties", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function realImpl() { return 42; }
-      const Wrapper = Object.freeze({ fn: realImpl });`
+      const Wrapper = Object.freeze({ fn: realImpl });`,
     );
-    expect(parsed.objectPropertyBindings.get('Wrapper.fn')).toBe('realImpl');
+    expect(parsed.objectPropertyBindings.get("Wrapper.fn")).toBe("realImpl");
   });
 
-  it('extracts properties from plain object literals (no Object.freeze)', () => {
+  it("extracts properties from plain object literals (no Object.freeze)", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function doStuff() {}
-      const MyObj = { doStuff };`
+      const MyObj = { doStuff };`,
     );
-    expect(parsed.objectPropertyBindings.get('MyObj.doStuff')).toBe('doStuff');
+    expect(parsed.objectPropertyBindings.get("MyObj.doStuff")).toBe("doStuff");
   });
 
-  it('extracts properties from exported const with inline methods (YM pattern)', () => {
+  it("extracts properties from exported const with inline methods (YM pattern)", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `export const YM = {
         fromDate(d: Date) { return d.getFullYear(); },
         compare: (a: number, b: number) => a - b
-      };`
+      };`,
     );
-    expect(parsed.objectPropertyBindings.get('YM.fromDate')).toBe(
-      'YM.fromDate'
-    );
-    expect(parsed.objectPropertyBindings.get('YM.compare')).toBe('YM.compare');
-    expect(parsed.exportedNames.get('YM')).toBe('YM');
+    expect(parsed.objectPropertyBindings.get("YM.fromDate")).toBe("YM.fromDate");
+    expect(parsed.objectPropertyBindings.get("YM.compare")).toBe("YM.compare");
+    expect(parsed.exportedNames.get("YM")).toBe("YM");
     const names = parsed.functions.map((f) => f.qualifiedName);
-    expect(names).toContain('YM.fromDate');
-    expect(names).toContain('YM.compare');
+    expect(names).toContain("YM.fromDate");
+    expect(names).toContain("YM.compare");
   });
 
-  it('extracts call sites from inline method bodies', () => {
+  it("extracts call sites from inline method bodies", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function validate(x: any) { return !!x; }
       const Loader = Object.freeze({
         load(id: string) { validate(id); return fetch(id); }
-      });`
+      });`,
     );
-    const loadFn = parsed.functions.find(
-      (f) => f.qualifiedName === 'Loader.load'
-    );
+    const loadFn = parsed.functions.find((f) => f.qualifiedName === "Loader.load");
     expect(loadFn).toBeDefined();
-    const callNames = loadFn!.callSites
-      .map((c) => c.calleeName)
-      .filter(Boolean);
-    expect(callNames).toContain('validate');
+    const callNames = loadFn!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain("validate");
   });
 
-  it('handles mixed shorthand and inline properties', () => {
+  it("handles mixed shorthand and inline properties", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function existing() { return 1; }
       const Mixed = Object.freeze({
         existing,
         inline() { return 2; },
         arrow: () => 3,
         ref: existing
-      });`
+      });`,
     );
-    expect(parsed.objectPropertyBindings.get('Mixed.existing')).toBe(
-      'existing'
-    );
-    expect(parsed.objectPropertyBindings.get('Mixed.inline')).toBe(
-      'Mixed.inline'
-    );
-    expect(parsed.objectPropertyBindings.get('Mixed.arrow')).toBe(
-      'Mixed.arrow'
-    );
-    expect(parsed.objectPropertyBindings.get('Mixed.ref')).toBe('existing');
+    expect(parsed.objectPropertyBindings.get("Mixed.existing")).toBe("existing");
+    expect(parsed.objectPropertyBindings.get("Mixed.inline")).toBe("Mixed.inline");
+    expect(parsed.objectPropertyBindings.get("Mixed.arrow")).toBe("Mixed.arrow");
+    expect(parsed.objectPropertyBindings.get("Mixed.ref")).toBe("existing");
   });
 });
 
-describe('parseSource - module-level call sites', () => {
-  it('captures calls inside callbacks passed to method chains', () => {
+describe("parseSource - module-level call sites", () => {
+  it("captures calls inside callbacks passed to method chains", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `import { run } from './runner.js';
       const app = createApp();
       app.command('go').action((opts) => {
         run(opts);
         cleanup();
-      });`
+      });`,
     );
-    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
     expect(mod).toBeDefined();
     const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
-    expect(callNames).toContain('run');
-    expect(callNames).toContain('cleanup');
+    expect(callNames).toContain("run");
+    expect(callNames).toContain("cleanup");
   });
 
-  it('captures direct top-level expression statement calls', () => {
+  it("captures direct top-level expression statement calls", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function setup() {}
-      setup();`
+      setup();`,
     );
-    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
     expect(mod).toBeDefined();
     const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
-    expect(callNames).toContain('setup');
+    expect(callNames).toContain("setup");
   });
 
-  it('does not create <module> when there are no expression statements', () => {
+  it("does not create <module> when there are no expression statements", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `function hello() { return 1; }
-      const greet = () => "hi";`
+      const greet = () => "hi";`,
     );
-    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
     expect(mod).toBeUndefined();
   });
 
-  it('captures nested calls inside chained callback arguments', () => {
+  it("captures nested calls inside chained callback arguments", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `import { forwardBfs, sliceGraph, mergeGraphs } from './graph.js';
       program
         .option('--verbose')
@@ -636,70 +568,60 @@ describe('parseSource - module-level call sites', () => {
           const graphs = sources.map((id) => forwardBfs(id));
           const merged = mergeGraphs(graphs);
           const sliced = sliceGraph(merged, sources, targets);
-        });`
+        });`,
     );
-    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
     expect(mod).toBeDefined();
     const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
-    expect(callNames).toContain('forwardBfs');
-    expect(callNames).toContain('mergeGraphs');
-    expect(callNames).toContain('sliceGraph');
+    expect(callNames).toContain("forwardBfs");
+    expect(callNames).toContain("mergeGraphs");
+    expect(callNames).toContain("sliceGraph");
   });
 });
 
-describe('parseSource - function signatures', () => {
-  it('extracts signature from a function declaration with params and return type', () => {
+describe("parseSource - function signatures", () => {
+  it("extracts signature from a function declaration with params and return type", () => {
     const parsed = parseSource(
-      '/test/file.ts',
-      `function add(a: number, b: number): number { return a + b; }`
+      "/test/file.ts",
+      `function add(a: number, b: number): number { return a + b; }`,
     );
-    expect(parsed.functions[0].signature).toBe(
-      '(a: number, b: number): number'
-    );
+    expect(parsed.functions[0].signature).toBe("(a: number, b: number): number");
   });
 
-  it('extracts signature from an arrow function', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `const greet = (name: string): string => name;`
-    );
-    expect(parsed.functions[0].signature).toBe('(name: string): string');
+  it("extracts signature from an arrow function", () => {
+    const parsed = parseSource("/test/file.ts", `const greet = (name: string): string => name;`);
+    expect(parsed.functions[0].signature).toBe("(name: string): string");
   });
 
-  it('extracts signature without return type', () => {
-    const parsed = parseSource(
-      '/test/file.ts',
-      `function doWork(x: number) { return x * 2; }`
-    );
-    expect(parsed.functions[0].signature).toBe('(x: number)');
+  it("extracts signature without return type", () => {
+    const parsed = parseSource("/test/file.ts", `function doWork(x: number) { return x * 2; }`);
+    expect(parsed.functions[0].signature).toBe("(x: number)");
   });
 
-  it('extracts signature with no parameters', () => {
-    const parsed = parseSource('/test/file.ts', `function noop(): void {}`);
-    expect(parsed.functions[0].signature).toBe('(): void');
+  it("extracts signature with no parameters", () => {
+    const parsed = parseSource("/test/file.ts", `function noop(): void {}`);
+    expect(parsed.functions[0].signature).toBe("(): void");
   });
 
-  it('extracts signature from a class method', () => {
+  it("extracts signature from a class method", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class Svc {
         process(input: string): boolean { return true; }
-      }`
+      }`,
     );
-    const fn = parsed.functions.find((f) => f.qualifiedName === 'Svc.process');
-    expect(fn?.signature).toBe('(input: string): boolean');
+    const fn = parsed.functions.find((f) => f.qualifiedName === "Svc.process");
+    expect(fn?.signature).toBe("(input: string): boolean");
   });
 
-  it('returns undefined signature for constructors', () => {
+  it("returns undefined signature for constructors", () => {
     const parsed = parseSource(
-      '/test/file.ts',
+      "/test/file.ts",
       `class Svc {
         constructor(private x: number) {}
-      }`
+      }`,
     );
-    const fn = parsed.functions.find(
-      (f) => f.qualifiedName === 'Svc.constructor'
-    );
+    const fn = parsed.functions.find((f) => f.qualifiedName === "Svc.constructor");
     expect(fn?.signature).toBeUndefined();
   });
 });

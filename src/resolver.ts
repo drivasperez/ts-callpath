@@ -1,6 +1,6 @@
-import ts from 'typescript';
-import * as fs from 'fs';
-import * as path from 'path';
+import ts from "typescript";
+import * as fs from "fs";
+import * as path from "path";
 import type {
   FunctionId,
   CallSite,
@@ -8,10 +8,10 @@ import type {
   ParsedFunction,
   FunctionNode,
   EdgeKind,
-} from './types.js';
-import { makeFunctionId } from './types.js';
-import { parseFile } from './parser.js';
-import { WorkspaceResolver } from './workspaceResolver.js';
+} from "./types.js";
+import { makeFunctionId } from "./types.js";
+import { parseFile } from "./parser.js";
+import { WorkspaceResolver } from "./workspaceResolver.js";
 
 const tsCompilerOptions: ts.CompilerOptions = {
   moduleResolution: ts.ModuleResolutionKind.Node10,
@@ -21,7 +21,7 @@ const tsCompilerOptions: ts.CompilerOptions = {
 
 const tsModuleResolutionHost: ts.ModuleResolutionHost = {
   fileExists: (p) => fs.existsSync(p),
-  readFile: (p) => fs.readFileSync(p, 'utf-8'),
+  readFile: (p) => fs.readFileSync(p, "utf-8"),
 };
 
 export class Resolver {
@@ -31,7 +31,7 @@ export class Resolver {
 
   constructor(
     private repoRoot: string,
-    verbose: boolean = false
+    verbose: boolean = false,
   ) {
     this.workspaceResolver = new WorkspaceResolver(repoRoot);
     this.verbose = verbose;
@@ -46,9 +46,7 @@ export class Resolver {
 
     if (!fs.existsSync(filePath)) return null;
     if (this.verbose) {
-      process.stderr.write(
-        `  parsing ${path.relative(this.repoRoot, filePath)}\n`
-      );
+      process.stderr.write(`  parsing ${path.relative(this.repoRoot, filePath)}\n`);
     }
 
     try {
@@ -68,21 +66,18 @@ export class Resolver {
    */
   resolveModule(specifier: string, fromFile: string): string | null {
     // 1. Package specifiers (e.g. @watershed/*)
-    if (
-      specifier.startsWith('@watershed/') ||
-      specifier.startsWith('@watershed-')
-    ) {
+    if (specifier.startsWith("@watershed/") || specifier.startsWith("@watershed-")) {
       const resolved = this.workspaceResolver.resolve(specifier);
       if (resolved) return resolved;
     }
 
     // 2. Relative paths
-    if (specifier.startsWith('.')) {
+    if (specifier.startsWith(".")) {
       const result = ts.resolveModuleName(
         specifier,
         fromFile,
         tsCompilerOptions,
-        tsModuleResolutionHost
+        tsModuleResolutionHost,
       );
       if (result.resolvedModule) {
         return result.resolvedModule.resolvedFileName;
@@ -90,14 +85,7 @@ export class Resolver {
       // Fallback: manual resolution for .ts/.tsx files
       const dir = path.dirname(fromFile);
       const basePath = path.resolve(dir, specifier);
-      const extensions = [
-        '.ts',
-        '.tsx',
-        '.js',
-        '.jsx',
-        '/index.ts',
-        '/index.tsx',
-      ];
+      const extensions = [".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx"];
       for (const ext of extensions) {
         const candidate = basePath + ext;
         if (fs.existsSync(candidate)) return candidate;
@@ -120,15 +108,13 @@ export class Resolver {
    */
   resolveQualifiedName(
     filePath: string,
-    qualifiedName: string
+    qualifiedName: string,
   ): { qualifiedName: string; fn: ParsedFunction } | null {
     const file = this.getFile(filePath);
     if (!file) return null;
 
     // Direct match
-    const directFn = file.functions.find(
-      (f) => f.qualifiedName === qualifiedName
-    );
+    const directFn = file.functions.find((f) => f.qualifiedName === qualifiedName);
     if (directFn) return { qualifiedName, fn: directFn };
 
     // Binding fallback
@@ -148,7 +134,7 @@ export class Resolver {
   findExport(
     filePath: string,
     exportedName: string,
-    visited?: Set<string>
+    visited?: Set<string>,
   ): { filePath: string; fn: ParsedFunction } | null {
     visited = visited ?? new Set();
     const key = `${filePath}::${exportedName}`;
@@ -161,10 +147,7 @@ export class Resolver {
     // Check re-exports first
     for (const reExport of file.reExports) {
       if (reExport.exportedName === exportedName) {
-        const targetPath = this.resolveModule(
-          reExport.moduleSpecifier,
-          filePath
-        );
+        const targetPath = this.resolveModule(reExport.moduleSpecifier, filePath);
         if (targetPath) {
           return this.findExport(targetPath, reExport.importedName, visited);
         }
@@ -181,8 +164,8 @@ export class Resolver {
     }
 
     // For 'default' export: also check if any function is the default
-    if (exportedName === 'default') {
-      const defaultLocal = file.exportedNames.get('default');
+    if (exportedName === "default") {
+      const defaultLocal = file.exportedNames.get("default");
       if (defaultLocal) {
         const fn = file.functions.find((f) => f.qualifiedName === defaultLocal);
         if (fn) return { filePath, fn };
@@ -200,7 +183,7 @@ export class Resolver {
     filePath: string,
     exportedName: string,
     methodName: string,
-    visited?: Set<string>
+    visited?: Set<string>,
   ): { filePath: string; fn: ParsedFunction } | null {
     visited = visited ?? new Set();
     const key = `${filePath}::${exportedName}.${methodName}`;
@@ -213,17 +196,9 @@ export class Resolver {
     // Check re-exports
     for (const reExport of file.reExports) {
       if (reExport.exportedName === exportedName) {
-        const targetPath = this.resolveModule(
-          reExport.moduleSpecifier,
-          filePath
-        );
+        const targetPath = this.resolveModule(reExport.moduleSpecifier, filePath);
         if (targetPath) {
-          return this.findClassMethod(
-            targetPath,
-            reExport.importedName,
-            methodName,
-            visited
-          );
+          return this.findClassMethod(targetPath, reExport.importedName, methodName, visited);
         }
       }
     }
@@ -250,21 +225,17 @@ export class Resolver {
   resolveCallSite(
     callSite: CallSite,
     callerFile: ParsedFile,
-    callerFunction: ParsedFunction
+    callerFunction: ParsedFunction,
   ): { targetId: FunctionId; targetNode: FunctionNode; kind: EdgeKind } | null {
     if (callSite.calleeName) {
-      return this.resolveSimpleCall(
-        callSite.calleeName,
-        callerFile,
-        callerFunction
-      );
+      return this.resolveSimpleCall(callSite.calleeName, callerFile, callerFunction);
     }
     if (callSite.objectName && callSite.propertyName) {
       return this.resolvePropertyCall(
         callSite.objectName,
         callSite.propertyName,
         callerFile,
-        callerFunction
+        callerFunction,
       );
     }
     return null;
@@ -273,12 +244,10 @@ export class Resolver {
   private resolveSimpleCall(
     calleeName: string,
     callerFile: ParsedFile,
-    callerFunction: ParsedFunction
+    callerFunction: ParsedFunction,
   ): { targetId: FunctionId; targetNode: FunctionNode; kind: EdgeKind } | null {
     // 1. Check if it's a local function in the same file
-    const localFn = callerFile.functions.find(
-      (f) => f.qualifiedName === calleeName
-    );
+    const localFn = callerFile.functions.find((f) => f.qualifiedName === calleeName);
     if (localFn) {
       const id = makeFunctionId(callerFile.filePath, calleeName);
       return {
@@ -293,17 +262,14 @@ export class Resolver {
           description: localFn.description,
           signature: localFn.signature,
         },
-        kind: 'direct',
+        kind: "direct",
       };
     }
 
     // 2. Check imports
     const imp = callerFile.imports.find((i) => i.localName === calleeName);
     if (imp && !imp.isNamespace) {
-      const targetPath = this.resolveModule(
-        imp.moduleSpecifier,
-        callerFile.filePath
-      );
+      const targetPath = this.resolveModule(imp.moduleSpecifier, callerFile.filePath);
       if (targetPath) {
         const result = this.findExport(targetPath, imp.importedName);
         if (result) {
@@ -320,7 +286,7 @@ export class Resolver {
               description: result.fn.description,
               signature: result.fn.signature,
             },
-            kind: 'direct',
+            kind: "direct",
           };
         }
       }
@@ -330,12 +296,8 @@ export class Resolver {
     // resolve through the ref (avoids infinite recursion when they're the same).
     for (const di of callerFunction.diDefaults) {
       if (di.localRef && di.localRef !== calleeName) {
-        const result = this.resolveSimpleCall(
-          di.localRef,
-          callerFile,
-          callerFunction
-        );
-        if (result) return { ...result, kind: 'di-default' };
+        const result = this.resolveSimpleCall(di.localRef, callerFile, callerFunction);
+        if (result) return { ...result, kind: "di-default" };
       }
     }
 
@@ -346,28 +308,20 @@ export class Resolver {
     objectName: string,
     propertyName: string,
     callerFile: ParsedFile,
-    callerFunction: ParsedFunction
+    callerFunction: ParsedFunction,
   ): { targetId: FunctionId; targetNode: FunctionNode; kind: EdgeKind } | null {
     // 1. Check DI defaults: if objectName matches a DI parameter name
     for (const di of callerFunction.diDefaults) {
       if (di.paramName === objectName && di.propName === propertyName) {
         if (di.objectRef && di.methodRef) {
           // The DI default is Class.method — resolve via import
-          const result = this.resolvePropertyCallViaImport(
-            di.objectRef,
-            di.methodRef,
-            callerFile
-          );
-          if (result) return { ...result, kind: 'di-default' };
+          const result = this.resolvePropertyCallViaImport(di.objectRef, di.methodRef, callerFile);
+          if (result) return { ...result, kind: "di-default" };
         }
         if (di.localRef) {
           // The DI default is a simple identifier
-          const result = this.resolveSimpleCall(
-            di.localRef,
-            callerFile,
-            callerFunction
-          );
-          if (result) return { ...result, kind: 'di-default' };
+          const result = this.resolveSimpleCall(di.localRef, callerFile, callerFunction);
+          if (result) return { ...result, kind: "di-default" };
         }
       }
     }
@@ -377,10 +331,7 @@ export class Resolver {
     if (imp) {
       if (imp.isNamespace) {
         // Namespace import: X.y() → resolve named export y from the module
-        const targetPath = this.resolveModule(
-          imp.moduleSpecifier,
-          callerFile.filePath
-        );
+        const targetPath = this.resolveModule(imp.moduleSpecifier, callerFile.filePath);
         if (targetPath) {
           const result = this.findExport(targetPath, propertyName);
           if (result) {
@@ -397,22 +348,15 @@ export class Resolver {
                 description: result.fn.description,
                 signature: result.fn.signature,
               },
-              kind: 'direct',
+              kind: "direct",
             };
           }
         }
       } else {
         // Named/default import: likely a class with a static method
-        const targetPath = this.resolveModule(
-          imp.moduleSpecifier,
-          callerFile.filePath
-        );
+        const targetPath = this.resolveModule(imp.moduleSpecifier, callerFile.filePath);
         if (targetPath) {
-          const result = this.findClassMethod(
-            targetPath,
-            imp.importedName,
-            propertyName
-          );
+          const result = this.findClassMethod(targetPath, imp.importedName, propertyName);
           if (result) {
             const id = makeFunctionId(result.filePath, result.fn.qualifiedName);
             return {
@@ -427,17 +371,14 @@ export class Resolver {
                 description: result.fn.description,
                 signature: result.fn.signature,
               },
-              kind: 'static-method',
+              kind: "static-method",
             };
           }
           // Also check if the module exports a plain function with this name
           // (for cases like default import of a module that's actually a namespace)
           const fnResult = this.findExport(targetPath, propertyName);
           if (fnResult) {
-            const id = makeFunctionId(
-              fnResult.filePath,
-              fnResult.fn.qualifiedName
-            );
+            const id = makeFunctionId(fnResult.filePath, fnResult.fn.qualifiedName);
             return {
               targetId: id,
               targetNode: {
@@ -450,7 +391,7 @@ export class Resolver {
                 description: fnResult.fn.description,
                 signature: fnResult.fn.signature,
               },
-              kind: 'direct',
+              kind: "direct",
             };
           }
         }
@@ -459,9 +400,7 @@ export class Resolver {
 
     // 3. Check if objectName is a local class
     const qualifiedName = `${objectName}.${propertyName}`;
-    const localMethod = callerFile.functions.find(
-      (f) => f.qualifiedName === qualifiedName
-    );
+    const localMethod = callerFile.functions.find((f) => f.qualifiedName === qualifiedName);
     if (localMethod) {
       const id = makeFunctionId(callerFile.filePath, qualifiedName);
       return {
@@ -476,16 +415,14 @@ export class Resolver {
           description: localMethod.description,
           signature: localMethod.signature,
         },
-        kind: 'static-method',
+        kind: "static-method",
       };
     }
 
     // 4. Fallback: check object property bindings for local objects
     const binding = callerFile.objectPropertyBindings.get(qualifiedName);
     if (binding && binding !== qualifiedName) {
-      const boundFn = callerFile.functions.find(
-        (f) => f.qualifiedName === binding
-      );
+      const boundFn = callerFile.functions.find((f) => f.qualifiedName === binding);
       if (boundFn) {
         const id = makeFunctionId(callerFile.filePath, binding);
         return {
@@ -500,7 +437,7 @@ export class Resolver {
             description: boundFn.description,
             signature: boundFn.signature,
           },
-          kind: 'static-method',
+          kind: "static-method",
         };
       }
     }
@@ -511,22 +448,15 @@ export class Resolver {
   private resolvePropertyCallViaImport(
     objectName: string,
     methodName: string,
-    callerFile: ParsedFile
+    callerFile: ParsedFile,
   ): { targetId: FunctionId; targetNode: FunctionNode; kind: EdgeKind } | null {
     const imp = callerFile.imports.find((i) => i.localName === objectName);
     if (!imp) return null;
 
-    const targetPath = this.resolveModule(
-      imp.moduleSpecifier,
-      callerFile.filePath
-    );
+    const targetPath = this.resolveModule(imp.moduleSpecifier, callerFile.filePath);
     if (!targetPath) return null;
 
-    const result = this.findClassMethod(
-      targetPath,
-      imp.importedName,
-      methodName
-    );
+    const result = this.findClassMethod(targetPath, imp.importedName, methodName);
     if (result) {
       const id = makeFunctionId(result.filePath, result.fn.qualifiedName);
       return {
@@ -541,7 +471,7 @@ export class Resolver {
           description: result.fn.description,
           signature: result.fn.signature,
         },
-        kind: 'static-method',
+        kind: "static-method",
       };
     }
 
@@ -561,7 +491,7 @@ export class Resolver {
           description: fnResult.fn.description,
           signature: fnResult.fn.signature,
         },
-        kind: 'direct',
+        kind: "direct",
       };
     }
 

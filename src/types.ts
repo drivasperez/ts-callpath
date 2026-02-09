@@ -5,10 +5,7 @@
  */
 export type FunctionId = string;
 
-export function makeFunctionId(
-  filePath: string,
-  qualifiedName: string
-): FunctionId {
+export function makeFunctionId(filePath: string, qualifiedName: string): FunctionId {
   return `${filePath}::${qualifiedName}`;
 }
 
@@ -16,7 +13,7 @@ export function parseFunctionId(id: FunctionId): {
   filePath: string;
   qualifiedName: string;
 } {
-  const sep = id.indexOf('::');
+  const sep = id.indexOf("::");
   if (sep === -1) throw new Error(`Invalid FunctionId: ${id}`);
   return { filePath: id.slice(0, sep), qualifiedName: id.slice(sep + 2) };
 }
@@ -33,11 +30,11 @@ export interface FunctionNode {
 }
 
 export type EdgeKind =
-  | 'direct'
-  | 'static-method'
-  | 'di-default'
-  | 'instrument-wrapper'
-  | 're-export';
+  | "direct"
+  | "static-method"
+  | "di-default"
+  | "instrument-wrapper"
+  | "re-export";
 
 export interface CallEdge {
   callerId: FunctionId;
@@ -88,7 +85,7 @@ export function addEdge(graph: CallGraph, edge: CallEdge): void {
 /** Compact display of a function ID: just filename::qualifiedName */
 export function shortId(id: FunctionId): string {
   const { filePath, qualifiedName } = parseFunctionId(id);
-  const parts = filePath.split('/');
+  const parts = filePath.split("/");
   return `${parts[parts.length - 1]}::${qualifiedName}`;
 }
 

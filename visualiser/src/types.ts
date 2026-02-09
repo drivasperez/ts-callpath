@@ -1,4 +1,4 @@
-export type LayoutDirection = 'TB' | 'LR';
+export type LayoutDirection = "TB" | "LR";
 
 // Input format (matches renderJson() output from dotRenderer.ts)
 export interface GraphNode {
@@ -18,12 +18,7 @@ export interface GraphNode {
 export interface GraphEdge {
   from: string;
   to: string;
-  kind:
-    | 'direct'
-    | 'static-method'
-    | 'di-default'
-    | 'instrument-wrapper'
-    | 're-export';
+  kind: "direct" | "static-method" | "di-default" | "instrument-wrapper" | "re-export";
   callLine: number;
 }
 
