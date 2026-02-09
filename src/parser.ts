@@ -287,6 +287,33 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
     }
   }
 
+  // Collect module-level call sites for a <module> pseudo-function.
+  // This captures calls in top-level expression statements and callbacks
+  // (e.g., program.action(() => { forwardBfs(...) })).
+  // We only process ExpressionStatements to avoid duplicating call sites
+  // already captured inside named functions from variable/function/class decls.
+  const moduleLevelCallSites: CallSite[] = [];
+  for (const stmt of sourceFile.statements) {
+    if (ts.isExpressionStatement(stmt)) {
+      extractCallSites(stmt, moduleLevelCallSites, sourceFile);
+    }
+  }
+
+  if (moduleLevelCallSites.length > 0) {
+    const lastLine =
+      sourceFile.getLineAndCharacterOfPosition(sourceFile.getEnd()).line + 1;
+    functions.push({
+      qualifiedName: '<module>',
+      line: 1,
+      endLine: lastLine,
+      isInstrumented: false,
+      callSites: moduleLevelCallSites,
+      diDefaults: [],
+      description: undefined,
+      signature: undefined,
+    });
+  }
+
   return {
     filePath,
     functions,

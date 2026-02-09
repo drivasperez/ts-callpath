@@ -326,7 +326,9 @@ describe('parseSource - instrumentOwnMethodsInPlace', () => {
       }
       instrumentOwnMethodsInPlace(MyService);`
     );
-    for (const fn of parsed.functions) {
+    const methods = parsed.functions.filter(f => f.qualifiedName !== '<module>');
+    expect(methods).toHaveLength(2);
+    for (const fn of methods) {
       expect(fn.isInstrumented).toBe(true);
     }
   });
@@ -581,6 +583,67 @@ describe('parseSource - object property bindings', () => {
       'Mixed.arrow'
     );
     expect(parsed.objectPropertyBindings.get('Mixed.ref')).toBe('existing');
+  });
+});
+
+describe('parseSource - module-level call sites', () => {
+  it('captures calls inside callbacks passed to method chains', () => {
+    const parsed = parseSource(
+      '/test/file.ts',
+      `import { run } from './runner.js';
+      const app = createApp();
+      app.command('go').action((opts) => {
+        run(opts);
+        cleanup();
+      });`
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain('run');
+    expect(callNames).toContain('cleanup');
+  });
+
+  it('captures direct top-level expression statement calls', () => {
+    const parsed = parseSource(
+      '/test/file.ts',
+      `function setup() {}
+      setup();`
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain('setup');
+  });
+
+  it('does not create <module> when there are no expression statements', () => {
+    const parsed = parseSource(
+      '/test/file.ts',
+      `function hello() { return 1; }
+      const greet = () => "hi";`
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    expect(mod).toBeUndefined();
+  });
+
+  it('captures nested calls inside chained callback arguments', () => {
+    const parsed = parseSource(
+      '/test/file.ts',
+      `import { forwardBfs, sliceGraph, mergeGraphs } from './graph.js';
+      program
+        .option('--verbose')
+        .action((opts) => {
+          const graphs = sources.map((id) => forwardBfs(id));
+          const merged = mergeGraphs(graphs);
+          const sliced = sliceGraph(merged, sources, targets);
+        });`
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === '<module>');
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain('forwardBfs');
+    expect(callNames).toContain('mergeGraphs');
+    expect(callNames).toContain('sliceGraph');
   });
 });
 
