@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm run typecheck:ci 2>&1 | tail -5"
+          },
+          {
+            "type": "command",
+            "command": "pnpm run fmt"
+          }
+        ]
+      }
+    ]
+  }
+}
