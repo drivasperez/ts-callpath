@@ -35,5 +35,6 @@
     "oxlint": "^1.43.0",
     "tsx": "^4.7.0",
     "vitest": "^4.0.0"
-  }
+  },
+  "packageManager": "pnpm@10.15.0"
 }
