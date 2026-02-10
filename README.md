@@ -150,16 +150,15 @@ The HTML visualizer uses a custom layered graph layout algorithm:
 ## Development
 
 ```bash
-cd tools/ts-callpath
-pnpm install --ignore-workspace   # standalone tool, not in monorepo workspace
+bun install                        # install deps
 
-pnpm test                          # all tests, watch mode
-pnpm test:unit                     # unit tests only, watch mode
-pnpm test:browser                  # browser tests only, watch mode
-pnpm test:ci                       # all tests, single run
-pnpm typecheck                     # type-check, watch mode
-pnpm typecheck:ci                  # type-check, single run
-pnpm build:visualiser              # bundle the visualiser
+bun test                           # all tests, watch mode
+bun test:unit                      # unit tests only, watch mode
+bun test:browser                   # browser tests only, watch mode
+bun test:ci                        # all tests, single run
+bun typecheck                      # type-check, watch mode
+bun typecheck:ci                   # type-check, single run
+bun build:visualiser               # bundle the visualiser
 ```
 
 ### Project structure
