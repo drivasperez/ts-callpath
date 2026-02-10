@@ -109,6 +109,7 @@ program
   .option("--html", "Output self-contained HTML visualizer", false)
   .option("--editor <name>", "Editor for open-in-editor links (cursor, vscode, zed)", "cursor")
   .option("--open", "Write to a temp file and open it", false)
+  .option("--external", "Include calls to external npm packages", false)
   .option(
     "--full",
     "Output full forward BFS graph (no slicing; implied when target is omitted)",
@@ -129,6 +130,7 @@ program
         html: boolean;
         editor: string;
         open: boolean;
+        external: boolean;
         full: boolean;
       },
     ) => {
@@ -160,6 +162,7 @@ program
       const resolver = new Resolver(repoRoot, {
         verbose: opts.verbose,
         tsconfigPath: opts.tsconfig ? path.resolve(opts.tsconfig) : undefined,
+        includeExternal: opts.external,
       });
 
       // Resolve source specs

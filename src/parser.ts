@@ -7,6 +7,7 @@ import type {
   ImportInfo,
   ReExportInfo,
   DiDefaultMapping,
+  FieldAssignment,
 } from "./types.js";
 import { unwrapVariableInitializer, isInstrumentOwnMethodsInPlace } from "./wrapperUnwrap.js";
 
@@ -428,6 +429,14 @@ function extractFunction(
     extractDiDefaults(node.parameters, diDefaults);
   }
 
+  // Extract field assignments from constructor bodies
+  let fieldAssignments: FieldAssignment[] | undefined;
+  if (ts.isConstructorDeclaration(node) && node.body && node.parameters) {
+    const fa: FieldAssignment[] = [];
+    extractFieldAssignments(node.body, node.parameters, fa);
+    if (fa.length > 0) fieldAssignments = fa;
+  }
+
   // Extract call sites from body
   // Derive enclosing class name from qualifiedName (e.g. "MyClass.method" → "MyClass")
   const dotIdx = qualifiedName.indexOf(".");
@@ -443,6 +452,7 @@ function extractFunction(
     isInstrumented,
     callSites,
     diDefaults,
+    fieldAssignments,
     description,
     signature,
   };
@@ -503,6 +513,13 @@ function extractDiDefaults(
     const paramName = ts.isIdentifier(param.name) ? param.name.text : "<destructured>";
 
     for (const prop of param.initializer.properties) {
+      // Shorthand property: { streamText } means { streamText: streamText }
+      if (ts.isShorthandPropertyAssignment(prop)) {
+        const propName = prop.name.text;
+        out.push({ paramName, propName, localRef: propName });
+        continue;
+      }
+
       if (!ts.isPropertyAssignment(prop)) continue;
       if (!ts.isIdentifier(prop.name)) continue;
       const propName = prop.name.text;
@@ -520,6 +537,59 @@ function extractDiDefaults(
           methodRef: prop.initializer.name.text,
         });
       }
+    }
+  }
+}
+
+/**
+ * Extract field assignments from a constructor body.
+ * Captures `this.fieldName = paramName.propName` and `this.fieldName = localRef`
+ * where the source object/identifier matches a constructor parameter name.
+ */
+function extractFieldAssignments(
+  body: ts.Block,
+  params: ts.NodeArray<ts.ParameterDeclaration>,
+  out: FieldAssignment[],
+): void {
+  const paramNames = new Set<string>();
+  for (const param of params) {
+    if (ts.isIdentifier(param.name)) {
+      paramNames.add(param.name.text);
+    }
+  }
+
+  for (const stmt of body.statements) {
+    if (!ts.isExpressionStatement(stmt)) continue;
+    const expr = stmt.expression;
+    if (!ts.isBinaryExpression(expr)) continue;
+    if (expr.operatorToken.kind !== ts.SyntaxKind.EqualsToken) continue;
+
+    // Left side must be this.X
+    const left = expr.left;
+    if (
+      !ts.isPropertyAccessExpression(left) ||
+      left.expression.kind !== ts.SyntaxKind.ThisKeyword ||
+      !ts.isIdentifier(left.name)
+    ) {
+      continue;
+    }
+    const fieldName = left.name.text;
+
+    // Right side: param.prop or identifier
+    const right = expr.right;
+    if (
+      ts.isPropertyAccessExpression(right) &&
+      ts.isIdentifier(right.expression) &&
+      ts.isIdentifier(right.name) &&
+      paramNames.has(right.expression.text)
+    ) {
+      out.push({
+        fieldName,
+        paramName: right.expression.text,
+        propName: right.name.text,
+      });
+    } else if (ts.isIdentifier(right) && paramNames.has(right.text)) {
+      out.push({ fieldName, localRef: right.text });
     }
   }
 }

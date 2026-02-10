@@ -24,6 +24,7 @@ function nodeIdToDot(id: FunctionId): string {
 }
 
 function shortFilePath(filePath: string, repoRoot: string): string {
+  if (filePath.startsWith("<external>::")) return filePath;
   return path.relative(repoRoot, filePath);
 }
 
@@ -39,6 +40,8 @@ function edgeStyle(kind: EdgeKind): string {
       return ' [style="dotted" color="#888888"]';
     case "re-export":
       return ' [style="dotted" color="#ebcb8b" label="re-export"]';
+    case "external":
+      return ' [style="dashed" color="#e07b53"]';
   }
 }
 
@@ -65,12 +68,18 @@ export function renderDot(graph: CallGraph, options: DotOptions): string {
 
   let clusterIdx = 0;
   for (const [filePath, nodeIds] of fileGroups) {
-    const relPath = shortFilePath(filePath, options.repoRoot);
+    const isExternal = filePath.startsWith("<external>::");
+    const relPath = isExternal ? filePath : shortFilePath(filePath, options.repoRoot);
     lines.push(`  subgraph cluster_${clusterIdx++} {`);
     lines.push(`    label="${escapeLabel(relPath)}";`);
     lines.push("    style=dashed;");
-    lines.push('    color="#666666";');
-    lines.push('    fontcolor="#999999";');
+    if (isExternal) {
+      lines.push('    color="#8b5e3c";');
+      lines.push('    fontcolor="#8b5e3c";');
+    } else {
+      lines.push('    color="#666666";');
+      lines.push('    fontcolor="#999999";');
+    }
     lines.push("");
 
     for (const id of nodeIds) {
@@ -79,7 +88,9 @@ export function renderDot(graph: CallGraph, options: DotOptions): string {
       const label = `${escapeLabel(qualifiedName)}\\n:${node.line}`;
       let attrs = `label="${label}"`;
 
-      if (options.sourceIds.has(id)) {
+      if (node.isExternal) {
+        attrs += ' style="filled" fillcolor="#8b5e3c" fontcolor="white"';
+      } else if (options.sourceIds.has(id)) {
         attrs += ' style="filled" fillcolor="#2d6a4f" fontcolor="white"';
       } else if (options.targetIds.has(id)) {
         attrs += ' style="filled" fillcolor="#a4243b" fontcolor="white"';
@@ -140,6 +151,7 @@ export function renderJson(graph: CallGraph, options: DotOptions): object {
       isInstrumented: node.isInstrumented,
       isSource: options.sourceIds.has(node.id),
       isTarget: options.targetIds.has(node.id),
+      ...(node.isExternal ? { isExternal: true } : {}),
       ...(node.description ? { description: node.description } : {}),
       ...(node.signature ? { signature: node.signature } : {}),
       ...(sourceSnippet ? { sourceSnippet } : {}),

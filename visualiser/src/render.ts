@@ -1012,6 +1012,7 @@ export function createClusterEl(
   cluster: LayoutCluster,
   isCollapsed: boolean,
   owners: string[] = [],
+  isExternal = false,
 ): SVGGElement {
   const g = svgEl("g", {
     class: "cluster-group",
@@ -1020,13 +1021,16 @@ export function createClusterEl(
   }) as SVGGElement;
   g.style.cursor = "pointer";
 
+  const clusterStroke = isExternal ? COLORS.external : COLORS.clusterBorder;
+  const clusterLabelColor = isExternal ? COLORS.external : COLORS.clusterLabel;
+
   const rect = svgEl("rect", {
     x: 0,
     y: 0,
     width: cluster.width,
     height: cluster.height,
     fill: COLORS.clusterFill,
-    stroke: COLORS.clusterBorder,
+    stroke: clusterStroke,
     "stroke-dasharray": "4,4",
     rx: 6,
   });
@@ -1036,7 +1040,7 @@ export function createClusterEl(
   const label = svgEl("text", {
     x: 6,
     y: 12,
-    fill: COLORS.clusterLabel,
+    fill: clusterLabelColor,
     "font-size": "10",
     "font-family": "monospace",
     class: "cluster-label",
@@ -1096,6 +1100,7 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
   const collapsedFiles = new Set<string>();
   let focusedNodeIds: Set<string> | null = null;
   const hiddenNodeIds = new Set<string>();
+  let showExternal = true;
   let direction: LayoutDirection = "LR";
   let currentLayout: LayoutResult = layout;
   const nodeEls = new Map<string, SVGGElement>();
@@ -1211,7 +1216,12 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
 
   // ── Initial Render ──
   for (const cluster of layout.clusters) {
-    const g = createClusterEl(cluster, false, getOwners(cluster.filePath));
+    const g = createClusterEl(
+      cluster,
+      false,
+      getOwners(cluster.filePath),
+      cluster.filePath.startsWith("<external>::"),
+    );
     clusterLayer.appendChild(g);
     clusterEls.set(cluster.filePath, g);
   }
@@ -1259,6 +1269,13 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
     }
   }
 
+  // ── External Toggle ──
+  function toggleExternal(): void {
+    showExternal = !showExternal;
+    relayout();
+    panZoom.fitAll();
+  }
+
   // Expose actions on window
   (window as any).__fitAll = () => panZoom.fitAll();
   (window as any).__exitFocus = () => exitFocus();
@@ -1267,6 +1284,7 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
   (window as any).__showHidden = () => showHidden();
   (window as any).__search = () => searchOverlay.show();
   (window as any).__toggleDirection = () => toggleDirection();
+  (window as any).__toggleExternal = () => toggleExternal();
   (window as any).__showSource = (nodeId: string) => {
     const node = data.nodes.find((n) => n.id === nodeId);
     if (node?.sourceSnippet) sourcePanel.show(node);
@@ -1326,6 +1344,9 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
         break;
       case "T":
         (window as any).__toggleTheme?.();
+        break;
+      case "X":
+        (window as any).__toggleExternal?.();
         break;
       case "H":
         (window as any).__toggleHelp?.();
@@ -1576,7 +1597,13 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
 
   function relayout(): void {
     let effectiveData = focusedNodeIds ? filterByFocus(data, focusedNodeIds) : data;
-    effectiveData = filterByHidden(effectiveData, hiddenNodeIds);
+    if (!showExternal) {
+      const externalIds = new Set(data.nodes.filter((n) => n.isExternal).map((n) => n.id));
+      const merged = new Set([...hiddenNodeIds, ...externalIds]);
+      effectiveData = filterByHidden(effectiveData, merged);
+    } else {
+      effectiveData = filterByHidden(effectiveData, hiddenNodeIds);
+    }
     const newLayout = layoutGraph(
       effectiveData,
       collapsedFiles,
@@ -1718,6 +1745,13 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
       } else {
         hiddenBtn.style.display = "none";
       }
+    }
+    // External toggle button
+    const extBtn = document.getElementById("toggle-external-btn");
+    if (extBtn) {
+      const hasExternal = data.nodes.some((n) => n.isExternal);
+      extBtn.style.display = hasExternal ? "inline-block" : "none";
+      extBtn.innerHTML = showExternal ? `Hide External <kbd>X</kbd>` : `Show External <kbd>X</kbd>`;
     }
     // Stats badge
     const statsEl = document.getElementById("stats");
@@ -1864,7 +1898,12 @@ export function renderGraph(container: HTMLElement, layout: LayoutResult, data: 
 
     for (const [fp, cluster] of newClusterMap) {
       if (oldClusterKeys.has(fp)) continue;
-      const g = createClusterEl(cluster, collapsedFiles.has(fp), getOwners(fp));
+      const g = createClusterEl(
+        cluster,
+        collapsedFiles.has(fp),
+        getOwners(fp),
+        fp.startsWith("<external>::"),
+      );
       g.style.opacity = "0";
       clusterLayer.appendChild(g);
       clusterEls.set(fp, g);

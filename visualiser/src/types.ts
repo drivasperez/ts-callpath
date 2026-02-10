@@ -10,6 +10,7 @@ export interface GraphNode {
   isInstrumented: boolean;
   isSource: boolean;
   isTarget: boolean;
+  isExternal?: boolean;
   description?: string;
   signature?: string;
   sourceSnippet?: string;
@@ -18,7 +19,7 @@ export interface GraphNode {
 export interface GraphEdge {
   from: string;
   to: string;
-  kind: "direct" | "static-method" | "di-default" | "instrument-wrapper" | "re-export";
+  kind: "direct" | "static-method" | "di-default" | "instrument-wrapper" | "re-export" | "external";
   callLine: number;
 }
 

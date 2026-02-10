@@ -628,6 +628,71 @@ describe("parseSource - module-level call sites", () => {
   });
 });
 
+describe("parseSource - constructor field assignments", () => {
+  it("extracts this._x = deps.y as a field assignment", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        constructor(deps = { streamText: realStreamText }) {
+          this._streamText = deps.streamText;
+        }
+        run() { this._streamText(); }
+      }`,
+    );
+    const ctor = parsed.functions.find((f) => f.qualifiedName === "Agent.constructor");
+    expect(ctor!.fieldAssignments).toHaveLength(1);
+    expect(ctor!.fieldAssignments![0]).toMatchObject({
+      fieldName: "_streamText",
+      paramName: "deps",
+      propName: "streamText",
+    });
+  });
+
+  it("extracts this._x = localParam as a field assignment with localRef", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        constructor(handler: Function) {
+          this._handler = handler;
+        }
+      }`,
+    );
+    const ctor = parsed.functions.find((f) => f.qualifiedName === "Agent.constructor");
+    expect(ctor!.fieldAssignments).toHaveLength(1);
+    expect(ctor!.fieldAssignments![0]).toMatchObject({
+      fieldName: "_handler",
+      localRef: "handler",
+    });
+  });
+
+  it("does not capture non-parameter assignments", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        constructor(deps = { x: realX }) {
+          this._computed = someGlobal.compute();
+          this._literal = "hello";
+        }
+      }`,
+    );
+    const ctor = parsed.functions.find((f) => f.qualifiedName === "Agent.constructor");
+    expect(ctor!.fieldAssignments).toBeUndefined();
+  });
+
+  it("does not produce fieldAssignments for non-constructor methods", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        run(deps = { x: realX }) {
+          this._x = deps.x;
+        }
+      }`,
+    );
+    const runFn = parsed.functions.find((f) => f.qualifiedName === "Agent.run");
+    expect(runFn!.fieldAssignments).toBeUndefined();
+  });
+});
+
 describe("parseSource - function signatures", () => {
   it("extracts signature from a function declaration with params and return type", () => {
     const parsed = parseSource(

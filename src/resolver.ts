@@ -15,11 +15,13 @@ import { parseFile } from "./parser.js";
 export interface ResolverOptions {
   verbose?: boolean;
   tsconfigPath?: string;
+  includeExternal?: boolean;
 }
 
 export class Resolver {
   private fileCache = new Map<string, ParsedFile>();
   private verbose: boolean;
+  private includeExternal: boolean;
   private compilerOptions: ts.CompilerOptions;
 
   constructor(
@@ -27,6 +29,7 @@ export class Resolver {
     opts?: ResolverOptions,
   ) {
     this.verbose = opts?.verbose ?? false;
+    this.includeExternal = opts?.includeExternal ?? false;
     this.compilerOptions = this.loadCompilerOptions(opts?.tsconfigPath);
   }
 
@@ -263,6 +266,27 @@ export class Resolver {
     return null;
   }
 
+  private makeExternalResult(
+    moduleSpecifier: string,
+    exportedName: string,
+  ): { targetId: FunctionId; targetNode: FunctionNode; kind: EdgeKind } {
+    const filePath = `<external>::${moduleSpecifier}`;
+    const qualifiedName = exportedName;
+    const id = makeFunctionId(filePath, qualifiedName);
+    return {
+      targetId: id,
+      targetNode: {
+        id,
+        filePath,
+        qualifiedName,
+        line: 0,
+        isInstrumented: false,
+        isExternal: true,
+      },
+      kind: "external",
+    };
+  }
+
   private resolveSimpleCall(
     calleeName: string,
     callerFile: ParsedFile,
@@ -316,6 +340,12 @@ export class Resolver {
             `  warning: followed import of ${calleeName} from ${imp.moduleSpecifier} but could not find exported function\n`,
           );
         }
+      } else if (
+        this.includeExternal &&
+        !imp.moduleSpecifier.startsWith(".") &&
+        !imp.moduleSpecifier.startsWith("/")
+      ) {
+        return this.makeExternalResult(imp.moduleSpecifier, imp.importedName);
       }
     }
 
@@ -378,6 +408,12 @@ export class Resolver {
               kind: "direct",
             };
           }
+        } else if (
+          this.includeExternal &&
+          !imp.moduleSpecifier.startsWith(".") &&
+          !imp.moduleSpecifier.startsWith("/")
+        ) {
+          return this.makeExternalResult(imp.moduleSpecifier, propertyName);
         }
       } else {
         // Named/default import: likely a class with a static method
@@ -426,6 +462,15 @@ export class Resolver {
               `  warning: followed import of ${objectName} from ${imp.moduleSpecifier} but could not find ${objectName}.${propertyName}\n`,
             );
           }
+        } else if (
+          this.includeExternal &&
+          !imp.moduleSpecifier.startsWith(".") &&
+          !imp.moduleSpecifier.startsWith("/")
+        ) {
+          return this.makeExternalResult(
+            imp.moduleSpecifier,
+            `${imp.importedName}.${propertyName}`,
+          );
         }
       }
     }
@@ -449,6 +494,44 @@ export class Resolver {
         },
         kind: "static-method",
       };
+    }
+
+    // 3b. Check constructor field assignments for the caller's class
+    // When a method calls this._field(), the parser rewrites it to ClassName._field().
+    // If _field isn't an actual method, check if the constructor assigned it from a DI param.
+    {
+      const ctorName = `${objectName}.constructor`;
+      const ctor = callerFile.functions.find((f) => f.qualifiedName === ctorName);
+      if (ctor?.fieldAssignments) {
+        const fa = ctor.fieldAssignments.find((a) => a.fieldName === propertyName);
+        if (fa) {
+          if (fa.paramName && fa.propName) {
+            // Field was assigned from param.prop (e.g. this._streamText = deps.streamText)
+            // Look up the constructor's DI defaults for that param/prop combo
+            const di = ctor.diDefaults.find(
+              (d) => d.paramName === fa.paramName && d.propName === fa.propName,
+            );
+            if (di) {
+              if (di.objectRef && di.methodRef) {
+                const result = this.resolvePropertyCallViaImport(
+                  di.objectRef,
+                  di.methodRef,
+                  callerFile,
+                );
+                if (result) return { ...result, kind: "di-default" };
+              }
+              if (di.localRef) {
+                const result = this.resolveSimpleCall(di.localRef, callerFile, callerFunction);
+                if (result) return { ...result, kind: "di-default" };
+              }
+            }
+          }
+          if (fa.localRef) {
+            const result = this.resolveSimpleCall(fa.localRef, callerFile, callerFunction);
+            if (result) return { ...result, kind: "di-default" };
+          }
+        }
+      }
     }
 
     // 4. Fallback: check object property bindings for local objects
@@ -486,45 +569,51 @@ export class Resolver {
     if (!imp) return null;
 
     const targetPath = this.resolveModule(imp.moduleSpecifier, callerFile.filePath);
-    if (!targetPath) return null;
+    if (targetPath) {
+      const result = this.findClassMethod(targetPath, imp.importedName, methodName);
+      if (result) {
+        const id = makeFunctionId(result.filePath, result.fn.qualifiedName);
+        return {
+          targetId: id,
+          targetNode: {
+            id,
+            filePath: result.filePath,
+            qualifiedName: result.fn.qualifiedName,
+            line: result.fn.line,
+            endLine: result.fn.endLine,
+            isInstrumented: result.fn.isInstrumented,
+            description: result.fn.description,
+            signature: result.fn.signature,
+          },
+          kind: "static-method",
+        };
+      }
 
-    const result = this.findClassMethod(targetPath, imp.importedName, methodName);
-    if (result) {
-      const id = makeFunctionId(result.filePath, result.fn.qualifiedName);
-      return {
-        targetId: id,
-        targetNode: {
-          id,
-          filePath: result.filePath,
-          qualifiedName: result.fn.qualifiedName,
-          line: result.fn.line,
-          endLine: result.fn.endLine,
-          isInstrumented: result.fn.isInstrumented,
-          description: result.fn.description,
-          signature: result.fn.signature,
-        },
-        kind: "static-method",
-      };
-    }
-
-    // Also try as a plain export
-    const fnResult = this.findExport(targetPath, methodName);
-    if (fnResult) {
-      const id = makeFunctionId(fnResult.filePath, fnResult.fn.qualifiedName);
-      return {
-        targetId: id,
-        targetNode: {
-          id,
-          filePath: fnResult.filePath,
-          qualifiedName: fnResult.fn.qualifiedName,
-          line: fnResult.fn.line,
-          endLine: fnResult.fn.endLine,
-          isInstrumented: fnResult.fn.isInstrumented,
-          description: fnResult.fn.description,
-          signature: fnResult.fn.signature,
-        },
-        kind: "direct",
-      };
+      // Also try as a plain export
+      const fnResult = this.findExport(targetPath, methodName);
+      if (fnResult) {
+        const id = makeFunctionId(fnResult.filePath, fnResult.fn.qualifiedName);
+        return {
+          targetId: id,
+          targetNode: {
+            id,
+            filePath: fnResult.filePath,
+            qualifiedName: fnResult.fn.qualifiedName,
+            line: fnResult.fn.line,
+            endLine: fnResult.fn.endLine,
+            isInstrumented: fnResult.fn.isInstrumented,
+            description: fnResult.fn.description,
+            signature: fnResult.fn.signature,
+          },
+          kind: "direct",
+        };
+      }
+    } else if (
+      this.includeExternal &&
+      !imp.moduleSpecifier.startsWith(".") &&
+      !imp.moduleSpecifier.startsWith("/")
+    ) {
+      return this.makeExternalResult(imp.moduleSpecifier, `${imp.importedName}.${methodName}`);
     }
 
     return null;

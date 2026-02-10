@@ -112,7 +112,9 @@ export function forwardBfs(
 
       if (!visited.has(targetId)) {
         visited.add(targetId);
-        queue.push([targetId, depth + 1]);
+        if (!targetNode.isExternal) {
+          queue.push([targetId, depth + 1]);
+        }
       }
     }
   }

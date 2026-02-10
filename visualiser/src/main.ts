@@ -181,6 +181,11 @@ document.addEventListener("DOMContentLoaded", () => {
     (window as any).__showHidden?.();
   });
 
+  // Toggle external
+  document.getElementById("toggle-external-btn")?.addEventListener("click", () => {
+    (window as any).__toggleExternal?.();
+  });
+
   // Toggle legend
   document.getElementById("legend-btn")?.addEventListener("click", () => {
     const legend = document.getElementById("legend-panel");

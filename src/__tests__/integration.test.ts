@@ -365,6 +365,183 @@ export function main() {
   });
 });
 
+describe("integration: constructor field assignment DI resolution", () => {
+  let tmpDir: string;
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-callpath-field-di-test-"));
+
+    // streamText.ts: the imported function that the DI default points to
+    fs.writeFileSync(
+      path.join(tmpDir, "streamText.ts"),
+      `export function streamText(prompt: string) {
+  return "streamed: " + prompt;
+}
+`,
+    );
+
+    // agent.ts: class with constructor DI → field assignment → method calling this._field()
+    fs.writeFileSync(
+      path.join(tmpDir, "agent.ts"),
+      `import { streamText } from './streamText';
+
+export class Agent {
+  private _streamText: typeof streamText;
+
+  constructor(deps = { streamText }) {
+    this._streamText = deps.streamText;
+  }
+
+  run() {
+    return this._streamText("hello");
+  }
+}
+`,
+    );
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resolves this._streamText() through constructor field assignment to imported function", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "agent.ts"), "Agent.run");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodeNames = Array.from(graph.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("Agent.run");
+    expect(nodeNames).toContain("streamText");
+  });
+
+  it("produces a di-default edge kind for the field assignment resolution", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "agent.ts"), "Agent.run");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const diEdges = graph.edges.filter((e) => e.kind === "di-default");
+    expect(diEdges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("slices path from Agent.run to streamText through DI field", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "agent.ts"), "Agent.run");
+    const targetId = makeFunctionId(path.join(tmpDir, "streamText.ts"), "streamText");
+
+    const fullGraph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const sliced = sliceGraph(fullGraph, [sourceId], [targetId]);
+    const nodeNames = Array.from(sliced.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("Agent.run");
+    expect(nodeNames).toContain("streamText");
+    expect(sliced.edges.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("integration: external package calls", () => {
+  let tmpDir: string;
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-callpath-external-test-"));
+
+    // app.ts: imports from an external package and calls it
+    fs.writeFileSync(
+      path.join(tmpDir, "app.ts"),
+      `import { streamText } from 'some-external-pkg';
+import * as extNs from 'another-ext-pkg';
+
+export function main() {
+  streamText("hello");
+  extNs.doThing();
+}
+`,
+    );
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("includes external nodes when includeExternal is true", () => {
+    const resolver = new Resolver(tmpDir, { includeExternal: true });
+    const sourceId = makeFunctionId(path.join(tmpDir, "app.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodes = Array.from(graph.nodes.values());
+    const externalNodes = nodes.filter((n) => n.isExternal);
+    expect(externalNodes.length).toBe(2);
+
+    const qualifiedNames = externalNodes.map((n) => n.qualifiedName);
+    expect(qualifiedNames).toContain("streamText");
+    expect(qualifiedNames).toContain("doThing");
+
+    // External nodes should have <external>:: prefix in filePath
+    for (const n of externalNodes) {
+      expect(n.filePath).toMatch(/^<external>::/);
+      expect(n.line).toBe(0);
+    }
+
+    // Edges to external nodes should have kind "external"
+    const externalEdges = graph.edges.filter((e) => e.kind === "external");
+    expect(externalEdges.length).toBe(2);
+  });
+
+  it("excludes external nodes when includeExternal is false", () => {
+    const resolver = new Resolver(tmpDir, { includeExternal: false });
+    const sourceId = makeFunctionId(path.join(tmpDir, "app.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodes = Array.from(graph.nodes.values());
+    const externalNodes = nodes.filter((n) => n.isExternal);
+    expect(externalNodes.length).toBe(0);
+  });
+
+  it("does not enqueue external nodes for further BFS", () => {
+    const resolver = new Resolver(tmpDir, { includeExternal: true });
+    const sourceId = makeFunctionId(path.join(tmpDir, "app.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    // External nodes should be leaf nodes (no outgoing edges from them)
+    const externalIds = new Set(
+      Array.from(graph.nodes.values())
+        .filter((n) => n.isExternal)
+        .map((n) => n.id),
+    );
+    for (const edge of graph.edges) {
+      expect(externalIds.has(edge.callerId)).toBe(false);
+    }
+  });
+});
+
 describe("integration: tsconfig baseUrl resolution", () => {
   let tmpDir: string;
 
