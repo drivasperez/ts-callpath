@@ -263,15 +263,27 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
   }
 
   // Collect module-level call sites for a <module> pseudo-function.
-  // This captures calls in top-level expression statements and callbacks
-  // (e.g., program.action(() => { forwardBfs(...) })).
-  // We only process ExpressionStatements to avoid duplicating call sites
-  // already captured inside named functions from variable/function/class decls.
+  // This captures calls in top-level statements like expression statements,
+  // for-loops, if-statements, etc. (e.g., `for (const e of entries) { registry.register(e); }`).
+  // We skip declarations that are already captured as named functions
+  // (function/class/variable decls) and import/export/type-only declarations.
   const moduleLevelCallSites: CallSite[] = [];
   for (const stmt of sourceFile.statements) {
-    if (ts.isExpressionStatement(stmt)) {
-      extractCallSites(stmt, moduleLevelCallSites, sourceFile);
+    if (
+      ts.isFunctionDeclaration(stmt) ||
+      ts.isClassDeclaration(stmt) ||
+      ts.isVariableStatement(stmt) ||
+      ts.isImportDeclaration(stmt) ||
+      ts.isExportDeclaration(stmt) ||
+      ts.isExportAssignment(stmt) ||
+      ts.isTypeAliasDeclaration(stmt) ||
+      ts.isInterfaceDeclaration(stmt) ||
+      ts.isEnumDeclaration(stmt) ||
+      ts.isModuleDeclaration(stmt)
+    ) {
+      continue;
     }
+    extractCallSites(stmt, moduleLevelCallSites, sourceFile);
   }
 
   if (moduleLevelCallSites.length > 0) {

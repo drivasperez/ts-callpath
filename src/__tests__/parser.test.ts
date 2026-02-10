@@ -626,6 +626,34 @@ describe("parseSource - module-level call sites", () => {
     expect(callNames).toContain("mergeGraphs");
     expect(callNames).toContain("sliceGraph");
   });
+
+  it("captures calls inside top-level for-of loops", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `import { register } from './registry.js';
+      const ENTRIES = [a, b, c];
+      for (const entry of ENTRIES) {
+        register(entry);
+      }`,
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain("register");
+  });
+
+  it("captures calls inside top-level if statements", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `if (process.env.NODE_ENV === 'development') {
+        enableDebug();
+      }`,
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain("enableDebug");
+  });
 });
 
 describe("parseSource - constructor field assignments", () => {
