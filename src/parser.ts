@@ -157,6 +157,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
       const name = stmt.name.text;
       const isExported = hasExportModifier(stmt);
       if (isExported) exportedNames.set(name, name);
+      if (isExported && hasDefaultModifier(stmt)) exportedNames.set("default", name);
       const fn = extractFunction(name, stmt, sourceFile);
       functions.push(fn);
     }
@@ -199,6 +200,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
       const className = stmt.name.text;
       const isExported = hasExportModifier(stmt);
       if (isExported) exportedNames.set(className, className);
+      if (isExported && hasDefaultModifier(stmt)) exportedNames.set("default", className);
       const isInstrumented = instrumentedClasses.has(className);
 
       for (const member of stmt.members) {
@@ -299,6 +301,12 @@ function hasExportModifier(node: ts.Node): boolean {
   if (!ts.canHaveModifiers(node)) return false;
   const mods = ts.getModifiers(node);
   return mods?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+}
+
+function hasDefaultModifier(node: ts.Node): boolean {
+  if (!ts.canHaveModifiers(node)) return false;
+  const mods = ts.getModifiers(node);
+  return mods?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
 }
 
 /**

@@ -322,6 +322,26 @@ describe("parseSource - exported names", () => {
     );
     expect(parsed.exportedNames.get("default")).toBe("main");
   });
+
+  it("tracks export default function declaration", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `export default function processData() { return 1; }`,
+    );
+    expect(parsed.exportedNames.get("default")).toBe("processData");
+    expect(parsed.exportedNames.get("processData")).toBe("processData");
+  });
+
+  it("tracks export default class declaration", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `export default class DataProcessor {
+        run() { return 1; }
+      }`,
+    );
+    expect(parsed.exportedNames.get("default")).toBe("DataProcessor");
+    expect(parsed.exportedNames.get("DataProcessor")).toBe("DataProcessor");
+  });
 });
 
 describe("parseSource - JSDoc descriptions", () => {

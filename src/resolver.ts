@@ -311,6 +311,11 @@ export class Resolver {
             kind: "direct",
           };
         }
+        if (this.verbose) {
+          process.stderr.write(
+            `  warning: followed import of ${calleeName} from ${imp.moduleSpecifier} but could not find exported function\n`,
+          );
+        }
       }
     }
 
@@ -415,6 +420,11 @@ export class Resolver {
               },
               kind: "direct",
             };
+          }
+          if (this.verbose) {
+            process.stderr.write(
+              `  warning: followed import of ${objectName} from ${imp.moduleSpecifier} but could not find ${objectName}.${propertyName}\n`,
+            );
           }
         }
       }
