@@ -429,8 +429,11 @@ function extractFunction(
   }
 
   // Extract call sites from body
+  // Derive enclosing class name from qualifiedName (e.g. "MyClass.method" → "MyClass")
+  const dotIdx = qualifiedName.indexOf(".");
+  const className = dotIdx !== -1 ? qualifiedName.slice(0, dotIdx) : undefined;
   if (node.body) {
-    extractCallSites(node.body, callSites, sourceFile);
+    extractCallSites(node.body, callSites, sourceFile, className);
   }
 
   return {
@@ -462,12 +465,14 @@ function extractFunctionFromExpression(
     extractDiDefaults(node.parameters, diDefaults);
   }
 
+  const dotIdx = qualifiedName.indexOf(".");
+  const className = dotIdx !== -1 ? qualifiedName.slice(0, dotIdx) : undefined;
   if (node.body) {
     if (ts.isBlock(node.body)) {
-      extractCallSites(node.body, callSites, sourceFile);
+      extractCallSites(node.body, callSites, sourceFile, className);
     } else {
       // Arrow function with expression body
-      extractCallSitesFromExpression(node.body, callSites, sourceFile);
+      extractCallSitesFromExpression(node.body, callSites, sourceFile, className);
     }
   }
 
@@ -522,7 +527,12 @@ function extractDiDefaults(
 /**
  * Recursively extract call sites from a block/statement.
  */
-function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceFile): void {
+function extractCallSites(
+  node: ts.Node,
+  out: CallSite[],
+  sourceFile: ts.SourceFile,
+  className?: string,
+): void {
   // Don't descend into nested function/class declarations — they are separate scopes
   if (
     ts.isFunctionDeclaration(node) ||
@@ -538,7 +548,7 @@ function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceF
   }
 
   if (ts.isCallExpression(node)) {
-    extractCallSiteFromCallExpression(node, out, sourceFile);
+    extractCallSiteFromCallExpression(node, out, sourceFile, className);
 
     // Walk into arguments — specifically look for arrow/function expressions
     // that are passed as callbacks
@@ -546,18 +556,18 @@ function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceF
       if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
         if (arg.body) {
           if (ts.isBlock(arg.body)) {
-            extractCallSites(arg.body, out, sourceFile);
+            extractCallSites(arg.body, out, sourceFile, className);
           } else {
-            extractCallSitesFromExpression(arg.body, out, sourceFile);
+            extractCallSitesFromExpression(arg.body, out, sourceFile, className);
           }
         }
       } else {
-        extractCallSites(arg, out, sourceFile);
+        extractCallSites(arg, out, sourceFile, className);
       }
     }
 
     // Walk into expression side (for chained calls like foo().bar())
-    extractCallSites(node.expression, out, sourceFile);
+    extractCallSites(node.expression, out, sourceFile, className);
     return;
   }
 
@@ -575,34 +585,36 @@ function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceF
         if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
           if (arg.body) {
             if (ts.isBlock(arg.body)) {
-              extractCallSites(arg.body, out, sourceFile);
+              extractCallSites(arg.body, out, sourceFile, className);
             } else {
-              extractCallSitesFromExpression(arg.body, out, sourceFile);
+              extractCallSitesFromExpression(arg.body, out, sourceFile, className);
             }
           }
         } else {
-          extractCallSites(arg, out, sourceFile);
+          extractCallSites(arg, out, sourceFile, className);
         }
       }
     }
     return;
   }
 
-  ts.forEachChild(node, (child) => extractCallSites(child, out, sourceFile));
+  ts.forEachChild(node, (child) => extractCallSites(child, out, sourceFile, className));
 }
 
 function extractCallSitesFromExpression(
   node: ts.Expression,
   out: CallSite[],
   sourceFile: ts.SourceFile,
+  className?: string,
 ): void {
-  extractCallSites(node, out, sourceFile);
+  extractCallSites(node, out, sourceFile, className);
 }
 
 function extractCallSiteFromCallExpression(
   node: ts.CallExpression,
   out: CallSite[],
   sourceFile: ts.SourceFile,
+  className?: string,
 ): void {
   const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 
@@ -614,13 +626,15 @@ function extractCallSiteFromCallExpression(
     return;
   }
 
-  // Property access: X.y(...)
+  // Property access: X.y(...) or this.y(...)
   if (ts.isPropertyAccessExpression(expr)) {
     const propName = expr.name.text;
     const obj = expr.expression;
 
     if (ts.isIdentifier(obj)) {
       out.push({ objectName: obj.text, propertyName: propName, line });
+    } else if (obj.kind === ts.SyntaxKind.ThisKeyword && className) {
+      out.push({ objectName: className, propertyName: propName, line });
     }
     // For chained calls like a.b.c(), we just capture the immediate property access
     // The deeper parts are handled by recursive traversal

@@ -72,6 +72,22 @@ describe("parseSource - class methods", () => {
     ]);
   });
 
+  it("resolves this.method() calls to the enclosing class", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class MyService {
+        run() { this.helper(); this.cleanup(); }
+        helper() {}
+        cleanup() {}
+      }`,
+    );
+    const runFn = parsed.functions.find((f) => f.qualifiedName === "MyService.run");
+    expect(runFn!.callSites).toEqual([
+      expect.objectContaining({ objectName: "MyService", propertyName: "helper" }),
+      expect.objectContaining({ objectName: "MyService", propertyName: "cleanup" }),
+    ]);
+  });
+
   it("extracts constructor call sites", () => {
     const parsed = parseSource(
       "/test/file.ts",
