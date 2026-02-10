@@ -5,8 +5,8 @@
   "description": "TypeScript call graph slicing tool",
   "type": "module",
   "scripts": {
-    "start": "node visualiser/build.mjs && tsx src/cli.ts",
-    "callpath": "tsx src/cli.ts",
+    "start": "bun visualiser/build.mjs && bun src/cli.ts",
+    "callpath": "bun src/cli.ts",
     "build:visualiser": "node visualiser/build.mjs",
     "test": "vitest",
     "test:unit": "vitest --project unit",

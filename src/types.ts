@@ -25,6 +25,7 @@ export interface FunctionNode {
   line: number;
   endLine?: number;
   isInstrumented: boolean;
+  isExternal?: boolean;
   description?: string;
   signature?: string;
 }
@@ -34,7 +35,9 @@ export type EdgeKind =
   | "static-method"
   | "di-default"
   | "instrument-wrapper"
-  | "re-export";
+  | "instance-method"
+  | "re-export"
+  | "external";
 
 export interface CallEdge {
   callerId: FunctionId;
@@ -116,6 +119,16 @@ export interface CallSite {
   line: number;
 }
 
+/** Constructor field assignment: this.fieldName = source */
+export interface FieldAssignment {
+  fieldName: string;
+  /** If assigned from param.prop (e.g. deps.streamText) */
+  paramName?: string;
+  propName?: string;
+  /** If assigned from a simple identifier (e.g. streamText) */
+  localRef?: string;
+}
+
 /** DI default parameter mapping: paramName.propName → resolved target */
 export interface DiDefaultMapping {
   paramName: string;
@@ -135,6 +148,7 @@ export interface ParsedFunction {
   isInstrumented: boolean;
   callSites: CallSite[];
   diDefaults: DiDefaultMapping[];
+  fieldAssignments?: FieldAssignment[];
   description?: string;
   signature?: string;
 }
@@ -149,4 +163,6 @@ export interface ParsedFile {
   exportedNames: Map<string, string>;
   /** Map from "ObjName.propName" to local function qualifiedName (for object-literal exports) */
   objectPropertyBindings: Map<string, string>;
+  /** Map from variable name to constructor class name (e.g. "myInstance" → "MyClass") */
+  instanceBindings: Map<string, string>;
 }

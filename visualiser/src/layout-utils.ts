@@ -353,14 +353,21 @@ export function clusterBarycenter(
 
 // ── Phase 5: Coordinate Assignment ─────────────────────────────────────────
 
+function displayFileName(filePath: string): string {
+  if (filePath.startsWith("<external>::")) return filePath.slice("<external>::".length);
+  return filePath.split("/").pop() ?? filePath;
+}
+
 export function estimateNodeWidth(node: InternalNode): number {
   if (node.isDummy) return 0;
   if (node.id.startsWith("__collapsed:")) {
-    const fileName = node.filePath.split("/").pop() ?? node.filePath;
-    const label = `${fileName} (${node.collapsedCount ?? 0})`;
+    const fn = displayFileName(node.filePath);
+    const label = `${fn} (${node.collapsedCount ?? 0})`;
     return label.length * CHAR_WIDTH + NODE_PADDING_X * 2;
   }
-  const label = `${node.original!.qualifiedName}:${node.original!.line}`;
+  const label = node.original?.isExternal
+    ? node.original.qualifiedName
+    : `${node.original!.qualifiedName}:${node.original!.line}`;
   return label.length * CHAR_WIDTH + NODE_PADDING_X * 2;
 }
 
@@ -827,6 +834,7 @@ export function preprocessCollapsed(
       isInstrumented: fileNodes.some((n) => n.isInstrumented),
       isSource: fileNodes.some((n) => n.isSource),
       isTarget: fileNodes.some((n) => n.isTarget),
+      ...(fileNodes.some((n) => n.isExternal) ? { isExternal: true } : {}),
     });
   }
 

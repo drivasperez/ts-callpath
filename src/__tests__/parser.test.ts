@@ -59,6 +59,35 @@ describe("parseSource - class methods", () => {
     expect(parsed.functions[0].qualifiedName).toBe("MyService.create");
   });
 
+  it("extracts new expression as constructor call site", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class MyService {
+        static create() { return new MyService(); }
+      }`,
+    );
+    const createFn = parsed.functions.find((f) => f.qualifiedName === "MyService.create");
+    expect(createFn!.callSites).toEqual([
+      expect.objectContaining({ objectName: "MyService", propertyName: "constructor" }),
+    ]);
+  });
+
+  it("resolves this.method() calls to the enclosing class", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class MyService {
+        run() { this.helper(); this.cleanup(); }
+        helper() {}
+        cleanup() {}
+      }`,
+    );
+    const runFn = parsed.functions.find((f) => f.qualifiedName === "MyService.run");
+    expect(runFn!.callSites).toEqual([
+      expect.objectContaining({ objectName: "MyService", propertyName: "helper" }),
+      expect.objectContaining({ objectName: "MyService", propertyName: "cleanup" }),
+    ]);
+  });
+
   it("extracts constructor call sites", () => {
     const parsed = parseSource(
       "/test/file.ts",
@@ -322,6 +351,26 @@ describe("parseSource - exported names", () => {
     );
     expect(parsed.exportedNames.get("default")).toBe("main");
   });
+
+  it("tracks export default function declaration", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `export default function processData() { return 1; }`,
+    );
+    expect(parsed.exportedNames.get("default")).toBe("processData");
+    expect(parsed.exportedNames.get("processData")).toBe("processData");
+  });
+
+  it("tracks export default class declaration", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `export default class DataProcessor {
+        run() { return 1; }
+      }`,
+    );
+    expect(parsed.exportedNames.get("default")).toBe("DataProcessor");
+    expect(parsed.exportedNames.get("DataProcessor")).toBe("DataProcessor");
+  });
 });
 
 describe("parseSource - JSDoc descriptions", () => {
@@ -577,6 +626,99 @@ describe("parseSource - module-level call sites", () => {
     expect(callNames).toContain("mergeGraphs");
     expect(callNames).toContain("sliceGraph");
   });
+
+  it("captures calls inside top-level for-of loops", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `import { register } from './registry.js';
+      const ENTRIES = [a, b, c];
+      for (const entry of ENTRIES) {
+        register(entry);
+      }`,
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain("register");
+  });
+
+  it("captures calls inside top-level if statements", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `if (process.env.NODE_ENV === 'development') {
+        enableDebug();
+      }`,
+    );
+    const mod = parsed.functions.find((f) => f.qualifiedName === "<module>");
+    expect(mod).toBeDefined();
+    const callNames = mod!.callSites.map((c) => c.calleeName).filter(Boolean);
+    expect(callNames).toContain("enableDebug");
+  });
+});
+
+describe("parseSource - constructor field assignments", () => {
+  it("extracts this._x = deps.y as a field assignment", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        constructor(deps = { streamText: realStreamText }) {
+          this._streamText = deps.streamText;
+        }
+        run() { this._streamText(); }
+      }`,
+    );
+    const ctor = parsed.functions.find((f) => f.qualifiedName === "Agent.constructor");
+    expect(ctor!.fieldAssignments).toHaveLength(1);
+    expect(ctor!.fieldAssignments![0]).toMatchObject({
+      fieldName: "_streamText",
+      paramName: "deps",
+      propName: "streamText",
+    });
+  });
+
+  it("extracts this._x = localParam as a field assignment with localRef", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        constructor(handler: Function) {
+          this._handler = handler;
+        }
+      }`,
+    );
+    const ctor = parsed.functions.find((f) => f.qualifiedName === "Agent.constructor");
+    expect(ctor!.fieldAssignments).toHaveLength(1);
+    expect(ctor!.fieldAssignments![0]).toMatchObject({
+      fieldName: "_handler",
+      localRef: "handler",
+    });
+  });
+
+  it("does not capture non-parameter assignments", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        constructor(deps = { x: realX }) {
+          this._computed = someGlobal.compute();
+          this._literal = "hello";
+        }
+      }`,
+    );
+    const ctor = parsed.functions.find((f) => f.qualifiedName === "Agent.constructor");
+    expect(ctor!.fieldAssignments).toBeUndefined();
+  });
+
+  it("does not produce fieldAssignments for non-constructor methods", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Agent {
+        run(deps = { x: realX }) {
+          this._x = deps.x;
+        }
+      }`,
+    );
+    const runFn = parsed.functions.find((f) => f.qualifiedName === "Agent.run");
+    expect(runFn!.fieldAssignments).toBeUndefined();
+  });
 });
 
 describe("parseSource - function signatures", () => {
@@ -623,5 +765,40 @@ describe("parseSource - function signatures", () => {
     );
     const fn = parsed.functions.find((f) => f.qualifiedName === "Svc.constructor");
     expect(fn?.signature).toBeUndefined();
+  });
+});
+
+describe("parseSource - instance bindings", () => {
+  it("extracts const x = new ClassName()", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `import { Registry } from './registry';
+      const reg = new Registry();`,
+    );
+    expect(parsed.instanceBindings.get("reg")).toBe("Registry");
+  });
+
+  it("extracts const x = new ClassName(args)", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Service {}
+      const svc = new Service("config", 42);`,
+    );
+    expect(parsed.instanceBindings.get("svc")).toBe("Service");
+  });
+
+  it("skips non-identifier constructors (new ns.Class())", () => {
+    const parsed = parseSource("/test/file.ts", `const x = new ns.MyClass();`);
+    expect(parsed.instanceBindings.size).toBe(0);
+  });
+
+  it("extracts multiple instance bindings in one file", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `const a = new Foo();
+      const b = new Bar();`,
+    );
+    expect(parsed.instanceBindings.get("a")).toBe("Foo");
+    expect(parsed.instanceBindings.get("b")).toBe("Bar");
   });
 });

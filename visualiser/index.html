@@ -41,6 +41,8 @@
         --edge-di-default: #b48ead;
         --edge-instrument-wrapper: #888888;
         --edge-re-export: #ebcb8b;
+        --node-external: #8b5e3c;
+        --edge-external: #e07b53;
         --edge-backedge: #d9534f;
         --cluster-border: #666666;
         --cluster-label: #999999;
@@ -115,6 +117,8 @@
         --edge-di-default: #8a6a9a;
         --edge-instrument-wrapper: #888888;
         --edge-re-export: #b8a040;
+        --node-external: #b87333;
+        --edge-external: #c96830;
         --edge-backedge: #c0392b;
         --cluster-border: #aaaaaa;
         --cluster-label: #666666;
@@ -346,6 +350,7 @@
       <button id="collapse-all-btn">Collapse All <kbd>C</kbd></button>
       <button id="expand-all-btn">Expand All <kbd>E</kbd></button>
       <button id="show-hidden-btn" style="display: none">Show Hidden (0)</button>
+      <button id="toggle-external-btn" style="display: none">Hide External <kbd>X</kbd></button>
       <button id="exit-focus-btn" style="display: none">Exit Focus <kbd>Esc</kbd></button>
       <button id="theme-btn">Theme <kbd>T</kbd></button>
       <button id="help-btn">? <kbd>H</kbd></button>
@@ -397,6 +402,7 @@
       <div style="margin-bottom: 3px"><kbd>C</kbd> Collapse all</div>
       <div style="margin-bottom: 3px"><kbd>E</kbd> Expand all</div>
       <div style="margin-bottom: 3px"><kbd>R</kbd> Toggle layout direction</div>
+      <div style="margin-bottom: 3px"><kbd>X</kbd> Toggle external nodes</div>
       <div style="margin-bottom: 3px"><kbd>T</kbd> Cycle theme (system / light / dark)</div>
       <div style="margin-bottom: 3px"><kbd>H</kbd> Toggle this help panel</div>
       <div style="margin-bottom: 3px"><kbd>/</kbd> or <kbd>&#8984;K</kbd> Search</div>
@@ -438,6 +444,9 @@
         ></span>
         Regular
       </div>
+      <div class="legend-item">
+        <span class="legend-swatch" style="background: var(--node-external)"></span> External
+      </div>
       <hr style="border-color: var(--legend-separator); margin: 6px 0" />
       <div class="legend-item">
         <span class="legend-line" style="background: var(--edge-direct)"></span> Direct call
@@ -478,6 +487,17 @@
           "
         ></span>
         Re-export
+      </div>
+      <div class="legend-item">
+        <span
+          class="legend-line"
+          style="
+            background: var(--edge-external);
+            border-top: 2px dashed var(--edge-external);
+            height: 0;
+          "
+        ></span>
+        External call
       </div>
       <div class="legend-item">
         <span

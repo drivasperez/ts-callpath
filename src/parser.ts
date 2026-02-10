@@ -7,6 +7,7 @@ import type {
   ImportInfo,
   ReExportInfo,
   DiDefaultMapping,
+  FieldAssignment,
 } from "./types.js";
 import { unwrapVariableInitializer, isInstrumentOwnMethodsInPlace } from "./wrapperUnwrap.js";
 
@@ -72,6 +73,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
   const reExports: ReExportInfo[] = [];
   const exportedNames = new Map<string, string>();
   const objectPropertyBindings = new Map<string, string>();
+  const instanceBindings = new Map<string, string>();
 
   // Track which classes have instrumentOwnMethodsInPlace
   const instrumentedClasses = new Set<string>();
@@ -157,6 +159,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
       const name = stmt.name.text;
       const isExported = hasExportModifier(stmt);
       if (isExported) exportedNames.set(name, name);
+      if (isExported && hasDefaultModifier(stmt)) exportedNames.set("default", name);
       const fn = extractFunction(name, stmt, sourceFile);
       functions.push(fn);
     }
@@ -191,6 +194,11 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
             sourceFile,
           );
         }
+
+        // Track `const x = new ClassName()` bindings
+        if (ts.isNewExpression(decl.initializer) && ts.isIdentifier(decl.initializer.expression)) {
+          instanceBindings.set(name, decl.initializer.expression.text);
+        }
       }
     }
 
@@ -199,6 +207,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
       const className = stmt.name.text;
       const isExported = hasExportModifier(stmt);
       if (isExported) exportedNames.set(className, className);
+      if (isExported && hasDefaultModifier(stmt)) exportedNames.set("default", className);
       const isInstrumented = instrumentedClasses.has(className);
 
       for (const member of stmt.members) {
@@ -260,15 +269,27 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
   }
 
   // Collect module-level call sites for a <module> pseudo-function.
-  // This captures calls in top-level expression statements and callbacks
-  // (e.g., program.action(() => { forwardBfs(...) })).
-  // We only process ExpressionStatements to avoid duplicating call sites
-  // already captured inside named functions from variable/function/class decls.
+  // This captures calls in top-level statements like expression statements,
+  // for-loops, if-statements, etc. (e.g., `for (const e of entries) { registry.register(e); }`).
+  // We skip declarations that are already captured as named functions
+  // (function/class/variable decls) and import/export/type-only declarations.
   const moduleLevelCallSites: CallSite[] = [];
   for (const stmt of sourceFile.statements) {
-    if (ts.isExpressionStatement(stmt)) {
-      extractCallSites(stmt, moduleLevelCallSites, sourceFile);
+    if (
+      ts.isFunctionDeclaration(stmt) ||
+      ts.isClassDeclaration(stmt) ||
+      ts.isVariableStatement(stmt) ||
+      ts.isImportDeclaration(stmt) ||
+      ts.isExportDeclaration(stmt) ||
+      ts.isExportAssignment(stmt) ||
+      ts.isTypeAliasDeclaration(stmt) ||
+      ts.isInterfaceDeclaration(stmt) ||
+      ts.isEnumDeclaration(stmt) ||
+      ts.isModuleDeclaration(stmt)
+    ) {
+      continue;
     }
+    extractCallSites(stmt, moduleLevelCallSites, sourceFile);
   }
 
   if (moduleLevelCallSites.length > 0) {
@@ -292,6 +313,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
     reExports,
     exportedNames,
     objectPropertyBindings,
+    instanceBindings,
   };
 }
 
@@ -299,6 +321,12 @@ function hasExportModifier(node: ts.Node): boolean {
   if (!ts.canHaveModifiers(node)) return false;
   const mods = ts.getModifiers(node);
   return mods?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+}
+
+function hasDefaultModifier(node: ts.Node): boolean {
+  if (!ts.canHaveModifiers(node)) return false;
+  const mods = ts.getModifiers(node);
+  return mods?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
 }
 
 /**
@@ -420,9 +448,20 @@ function extractFunction(
     extractDiDefaults(node.parameters, diDefaults);
   }
 
+  // Extract field assignments from constructor bodies
+  let fieldAssignments: FieldAssignment[] | undefined;
+  if (ts.isConstructorDeclaration(node) && node.body && node.parameters) {
+    const fa: FieldAssignment[] = [];
+    extractFieldAssignments(node.body, node.parameters, fa);
+    if (fa.length > 0) fieldAssignments = fa;
+  }
+
   // Extract call sites from body
+  // Derive enclosing class name from qualifiedName (e.g. "MyClass.method" → "MyClass")
+  const dotIdx = qualifiedName.indexOf(".");
+  const className = dotIdx !== -1 ? qualifiedName.slice(0, dotIdx) : undefined;
   if (node.body) {
-    extractCallSites(node.body, callSites, sourceFile);
+    extractCallSites(node.body, callSites, sourceFile, className);
   }
 
   return {
@@ -432,6 +471,7 @@ function extractFunction(
     isInstrumented,
     callSites,
     diDefaults,
+    fieldAssignments,
     description,
     signature,
   };
@@ -454,12 +494,14 @@ function extractFunctionFromExpression(
     extractDiDefaults(node.parameters, diDefaults);
   }
 
+  const dotIdx = qualifiedName.indexOf(".");
+  const className = dotIdx !== -1 ? qualifiedName.slice(0, dotIdx) : undefined;
   if (node.body) {
     if (ts.isBlock(node.body)) {
-      extractCallSites(node.body, callSites, sourceFile);
+      extractCallSites(node.body, callSites, sourceFile, className);
     } else {
       // Arrow function with expression body
-      extractCallSitesFromExpression(node.body, callSites, sourceFile);
+      extractCallSitesFromExpression(node.body, callSites, sourceFile, className);
     }
   }
 
@@ -490,6 +532,13 @@ function extractDiDefaults(
     const paramName = ts.isIdentifier(param.name) ? param.name.text : "<destructured>";
 
     for (const prop of param.initializer.properties) {
+      // Shorthand property: { streamText } means { streamText: streamText }
+      if (ts.isShorthandPropertyAssignment(prop)) {
+        const propName = prop.name.text;
+        out.push({ paramName, propName, localRef: propName });
+        continue;
+      }
+
       if (!ts.isPropertyAssignment(prop)) continue;
       if (!ts.isIdentifier(prop.name)) continue;
       const propName = prop.name.text;
@@ -512,9 +561,67 @@ function extractDiDefaults(
 }
 
 /**
+ * Extract field assignments from a constructor body.
+ * Captures `this.fieldName = paramName.propName` and `this.fieldName = localRef`
+ * where the source object/identifier matches a constructor parameter name.
+ */
+function extractFieldAssignments(
+  body: ts.Block,
+  params: ts.NodeArray<ts.ParameterDeclaration>,
+  out: FieldAssignment[],
+): void {
+  const paramNames = new Set<string>();
+  for (const param of params) {
+    if (ts.isIdentifier(param.name)) {
+      paramNames.add(param.name.text);
+    }
+  }
+
+  for (const stmt of body.statements) {
+    if (!ts.isExpressionStatement(stmt)) continue;
+    const expr = stmt.expression;
+    if (!ts.isBinaryExpression(expr)) continue;
+    if (expr.operatorToken.kind !== ts.SyntaxKind.EqualsToken) continue;
+
+    // Left side must be this.X
+    const left = expr.left;
+    if (
+      !ts.isPropertyAccessExpression(left) ||
+      left.expression.kind !== ts.SyntaxKind.ThisKeyword ||
+      !ts.isIdentifier(left.name)
+    ) {
+      continue;
+    }
+    const fieldName = left.name.text;
+
+    // Right side: param.prop or identifier
+    const right = expr.right;
+    if (
+      ts.isPropertyAccessExpression(right) &&
+      ts.isIdentifier(right.expression) &&
+      ts.isIdentifier(right.name) &&
+      paramNames.has(right.expression.text)
+    ) {
+      out.push({
+        fieldName,
+        paramName: right.expression.text,
+        propName: right.name.text,
+      });
+    } else if (ts.isIdentifier(right) && paramNames.has(right.text)) {
+      out.push({ fieldName, localRef: right.text });
+    }
+  }
+}
+
+/**
  * Recursively extract call sites from a block/statement.
  */
-function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceFile): void {
+function extractCallSites(
+  node: ts.Node,
+  out: CallSite[],
+  sourceFile: ts.SourceFile,
+  className?: string,
+): void {
   // Don't descend into nested function/class declarations — they are separate scopes
   if (
     ts.isFunctionDeclaration(node) ||
@@ -530,7 +637,7 @@ function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceF
   }
 
   if (ts.isCallExpression(node)) {
-    extractCallSiteFromCallExpression(node, out, sourceFile);
+    extractCallSiteFromCallExpression(node, out, sourceFile, className);
 
     // Walk into arguments — specifically look for arrow/function expressions
     // that are passed as callbacks
@@ -538,36 +645,65 @@ function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceF
       if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
         if (arg.body) {
           if (ts.isBlock(arg.body)) {
-            extractCallSites(arg.body, out, sourceFile);
+            extractCallSites(arg.body, out, sourceFile, className);
           } else {
-            extractCallSitesFromExpression(arg.body, out, sourceFile);
+            extractCallSitesFromExpression(arg.body, out, sourceFile, className);
           }
         }
       } else {
-        extractCallSites(arg, out, sourceFile);
+        extractCallSites(arg, out, sourceFile, className);
       }
     }
 
     // Walk into expression side (for chained calls like foo().bar())
-    extractCallSites(node.expression, out, sourceFile);
+    extractCallSites(node.expression, out, sourceFile, className);
     return;
   }
 
-  ts.forEachChild(node, (child) => extractCallSites(child, out, sourceFile));
+  // new ClassName(...) → treat as a call to ClassName.constructor
+  if (ts.isNewExpression(node)) {
+    const expr = node.expression;
+    if (ts.isIdentifier(expr)) {
+      const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+      out.push({ objectName: expr.text, propertyName: "constructor", line });
+    }
+
+    // Walk into arguments (same as CallExpression handling)
+    if (node.arguments) {
+      for (const arg of node.arguments) {
+        if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
+          if (arg.body) {
+            if (ts.isBlock(arg.body)) {
+              extractCallSites(arg.body, out, sourceFile, className);
+            } else {
+              extractCallSitesFromExpression(arg.body, out, sourceFile, className);
+            }
+          }
+        } else {
+          extractCallSites(arg, out, sourceFile, className);
+        }
+      }
+    }
+    return;
+  }
+
+  ts.forEachChild(node, (child) => extractCallSites(child, out, sourceFile, className));
 }
 
 function extractCallSitesFromExpression(
   node: ts.Expression,
   out: CallSite[],
   sourceFile: ts.SourceFile,
+  className?: string,
 ): void {
-  extractCallSites(node, out, sourceFile);
+  extractCallSites(node, out, sourceFile, className);
 }
 
 function extractCallSiteFromCallExpression(
   node: ts.CallExpression,
   out: CallSite[],
   sourceFile: ts.SourceFile,
+  className?: string,
 ): void {
   const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 
@@ -579,13 +715,15 @@ function extractCallSiteFromCallExpression(
     return;
   }
 
-  // Property access: X.y(...)
+  // Property access: X.y(...) or this.y(...)
   if (ts.isPropertyAccessExpression(expr)) {
     const propName = expr.name.text;
     const obj = expr.expression;
 
     if (ts.isIdentifier(obj)) {
       out.push({ objectName: obj.text, propertyName: propName, line });
+    } else if (obj.kind === ts.SyntaxKind.ThisKeyword && className) {
+      out.push({ objectName: className, propertyName: propName, line });
     }
     // For chained calls like a.b.c(), we just capture the immediate property access
     // The deeper parts are handled by recursive traversal

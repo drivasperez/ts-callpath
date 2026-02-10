@@ -6,6 +6,7 @@ export const COLORS = {
   source: "var(--node-source)",
   target: "var(--node-target)",
   instrumented: "var(--node-instrumented)",
+  external: "var(--node-external)",
   regularFill: "var(--node-fill)",
   regularBorder: "var(--node-border)",
   text: "var(--node-text)",
@@ -14,6 +15,7 @@ export const COLORS = {
   edgeDiDefault: "var(--edge-di-default)",
   edgeInstrumentWrapper: "var(--edge-instrument-wrapper)",
   edgeReExport: "var(--edge-re-export)",
+  edgeExternal: "var(--edge-external)",
   backedge: "var(--edge-backedge)",
   clusterBorder: "var(--cluster-border)",
   clusterLabel: "var(--cluster-label)",
@@ -58,6 +60,8 @@ export function edgeColor(kind: string): string {
       return COLORS.edgeInstrumentWrapper;
     case "re-export":
       return COLORS.edgeReExport;
+    case "external":
+      return COLORS.edgeExternal;
     default:
       return COLORS.edgeDirect;
   }
@@ -66,6 +70,8 @@ export function edgeColor(kind: string): string {
 export function edgeDasharray(kind: string): string {
   switch (kind) {
     case "di-default":
+      return "6,3";
+    case "external":
       return "6,3";
     case "instrument-wrapper":
     case "re-export":
@@ -89,6 +95,8 @@ export function nodeColor(node: LayoutNode): { fill: string; stroke: string; tex
     return { fill: COLORS.source, stroke: COLORS.source, textFill: "#ffffff" };
   if (node.original.isTarget)
     return { fill: COLORS.target, stroke: COLORS.target, textFill: "#ffffff" };
+  if (node.original.isExternal)
+    return { fill: COLORS.external, stroke: COLORS.external, textFill: "#ffffff" };
   if (node.original.isInstrumented)
     return { fill: COLORS.instrumented, stroke: COLORS.instrumented, textFill: "#ffffff" };
   return { fill: COLORS.regularFill, stroke: COLORS.regularBorder, textFill: COLORS.text };
@@ -180,6 +188,9 @@ export function computeBounds(layout: LayoutResult): {
 // ── Path Helpers ───────────────────────────────────────────────────────────
 
 export function fileName(filePath: string): string {
+  if (filePath.startsWith("<external>::")) {
+    return filePath.slice("<external>::".length);
+  }
   return filePath.split("/").pop() ?? filePath;
 }
 
@@ -187,10 +198,13 @@ export function fileName(filePath: string): string {
 
 export function nodeLabel(node: LayoutNode): string {
   if (node.isCollapsedGroup && node.original) {
-    const fn = node.original.filePath.split("/").pop() ?? node.original.filePath;
+    const fn = fileName(node.original.filePath);
     return `${fn} (${node.nodeCount})`;
   }
   if (node.original) {
+    if (node.original.isExternal) {
+      return node.original.qualifiedName;
+    }
     return `${node.original.qualifiedName}:${node.original.line}`;
   }
   return node.id;

@@ -25,6 +25,7 @@ describe("edgeColor", () => {
     expect(edgeColor("di-default")).toBe(COLORS.edgeDiDefault);
     expect(edgeColor("instrument-wrapper")).toBe(COLORS.edgeInstrumentWrapper);
     expect(edgeColor("re-export")).toBe(COLORS.edgeReExport);
+    expect(edgeColor("external")).toBe(COLORS.edgeExternal);
   });
 
   it("returns default for unknown kind", () => {
@@ -35,6 +36,7 @@ describe("edgeColor", () => {
 describe("edgeDasharray", () => {
   it("returns correct dasharray for each kind", () => {
     expect(edgeDasharray("di-default")).toBe("6,3");
+    expect(edgeDasharray("external")).toBe("6,3");
     expect(edgeDasharray("instrument-wrapper")).toBe("3,3");
     expect(edgeDasharray("re-export")).toBe("3,3");
   });
@@ -121,6 +123,18 @@ describe("nodeColor", () => {
     expect(nodeColor(node)).toEqual({
       fill: COLORS.instrumented,
       stroke: COLORS.instrumented,
+      textFill: "#ffffff",
+    });
+  });
+
+  it("returns external color for external node", () => {
+    const node = makeLayoutNode({
+      id: "a",
+      original: makeGraphNode({ id: "a", isExternal: true }),
+    });
+    expect(nodeColor(node)).toEqual({
+      fill: COLORS.external,
+      stroke: COLORS.external,
       textFill: "#ffffff",
     });
   });
@@ -275,6 +289,11 @@ describe("fileName", () => {
     expect(fileName("src/utils/helper.ts")).toBe("helper.ts");
   });
 
+  it("returns full package name for external paths", () => {
+    expect(fileName("<external>::@opentelemetry/api")).toBe("@opentelemetry/api");
+    expect(fileName("<external>::some-pkg")).toBe("some-pkg");
+  });
+
   it("returns input if no slashes", () => {
     expect(fileName("file.ts")).toBe("file.ts");
   });
@@ -308,6 +327,32 @@ describe("nodeLabel", () => {
       }),
     });
     expect(nodeLabel(node)).toBe("foo.ts (5)");
+  });
+
+  it("returns full package name for collapsed external group", () => {
+    const node = makeLayoutNode({
+      id: "__collapsed:<external>::@opentelemetry/api",
+      isCollapsedGroup: true,
+      nodeCount: 5,
+      original: makeGraphNode({
+        id: "__collapsed:<external>::@opentelemetry/api",
+        filePath: "<external>::@opentelemetry/api",
+      }),
+    });
+    expect(nodeLabel(node)).toBe("@opentelemetry/api (5)");
+  });
+
+  it("returns qualifiedName without line for external node", () => {
+    const node = makeLayoutNode({
+      id: "a",
+      original: makeGraphNode({
+        id: "a",
+        qualifiedName: "createHash",
+        isExternal: true,
+        line: 0,
+      }),
+    });
+    expect(nodeLabel(node)).toBe("createHash");
   });
 
   it("returns id for node with no original", () => {

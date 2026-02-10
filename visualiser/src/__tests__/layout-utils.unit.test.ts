@@ -241,6 +241,38 @@ describe("estimateNodeWidth", () => {
     const expected = 10 * CHAR_WIDTH + NODE_PADDING_X * 2;
     expect(estimateNodeWidth(node)).toBe(expected);
   });
+
+  it("uses full package name for collapsed external node", () => {
+    const node: InternalNode = {
+      id: "__collapsed:<external>::@opentelemetry/api",
+      original: makeGraphNode({
+        id: "__collapsed:<external>::@opentelemetry/api",
+        filePath: "<external>::@opentelemetry/api",
+        isExternal: true,
+      }),
+      isDummy: false,
+      layer: 0,
+      filePath: "<external>::@opentelemetry/api",
+      collapsedCount: 5,
+    };
+    // label is "@opentelemetry/api (5)" = 22 chars
+    const expected = 22 * CHAR_WIDTH + NODE_PADDING_X * 2;
+    expect(estimateNodeWidth(node)).toBe(expected);
+  });
+
+  it("omits :line suffix for external node", () => {
+    const node = makeInternalNode("createHash", 0, "<external>::crypto", {
+      original: makeGraphNode({
+        id: "createHash",
+        qualifiedName: "createHash",
+        isExternal: true,
+        line: 0,
+      }),
+    });
+    // label is "createHash" = 10 chars (no ":0")
+    const expected = 10 * CHAR_WIDTH + NODE_PADDING_X * 2;
+    expect(estimateNodeWidth(node)).toBe(expected);
+  });
 });
 
 describe("preprocessCollapsed", () => {
