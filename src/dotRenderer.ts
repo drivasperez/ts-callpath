@@ -34,6 +34,8 @@ function edgeStyle(kind: EdgeKind): string {
       return "";
     case "static-method":
       return ' [color="#6fa8dc"]';
+    case "instance-method":
+      return ' [color="#6fa8dc"]';
     case "di-default":
       return ' [style="dashed" color="#b48ead" label="DI"]';
     case "instrument-wrapper":

@@ -73,6 +73,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
   const reExports: ReExportInfo[] = [];
   const exportedNames = new Map<string, string>();
   const objectPropertyBindings = new Map<string, string>();
+  const instanceBindings = new Map<string, string>();
 
   // Track which classes have instrumentOwnMethodsInPlace
   const instrumentedClasses = new Set<string>();
@@ -193,6 +194,11 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
             sourceFile,
           );
         }
+
+        // Track `const x = new ClassName()` bindings
+        if (ts.isNewExpression(decl.initializer) && ts.isIdentifier(decl.initializer.expression)) {
+          instanceBindings.set(name, decl.initializer.expression.text);
+        }
       }
     }
 
@@ -307,6 +313,7 @@ export function parseSource(filePath: string, sourceText: string): ParsedFile {
     reExports,
     exportedNames,
     objectPropertyBindings,
+    instanceBindings,
   };
 }
 

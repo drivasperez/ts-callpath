@@ -624,3 +624,100 @@ export function main() {
     expect(sliced.edges.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("integration: instance method resolution", () => {
+  let tmpDir: string;
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-callpath-instance-test-"));
+
+    // registry.ts: class with a register method
+    fs.writeFileSync(
+      path.join(tmpDir, "registry.ts"),
+      `export class EvalRegistry {
+  register(entry: string) {
+    return entry;
+  }
+}
+`,
+    );
+
+    // caller.ts: instantiates and calls method
+    fs.writeFileSync(
+      path.join(tmpDir, "caller.ts"),
+      `import { EvalRegistry } from './registry';
+
+const EVAL_REGISTRY = new EvalRegistry();
+
+export function main() {
+  EVAL_REGISTRY.register("test");
+}
+`,
+    );
+
+    // local.ts: local class instantiation (no import)
+    fs.writeFileSync(
+      path.join(tmpDir, "local.ts"),
+      `class LocalService {
+  run() {
+    return "done";
+  }
+}
+
+const svc = new LocalService();
+
+export function main() {
+  svc.run();
+}
+`,
+    );
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("resolves instance method call on imported class", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "caller.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodeNames = Array.from(graph.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("main");
+    expect(nodeNames).toContain("EvalRegistry.register");
+  });
+
+  it("produces instance-method edge kind for instance calls", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "caller.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const instanceEdges = graph.edges.filter((e) => e.kind === "instance-method");
+    expect(instanceEdges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("resolves instance method call on local class", () => {
+    const resolver = new Resolver(tmpDir);
+    const sourceId = makeFunctionId(path.join(tmpDir, "local.ts"), "main");
+
+    const graph = forwardBfs(sourceId, resolver, {
+      maxDepth: 10,
+      maxNodes: 100,
+      verbose: false,
+    });
+
+    const nodeNames = Array.from(graph.nodes.values()).map((n) => n.qualifiedName);
+    expect(nodeNames).toContain("main");
+    expect(nodeNames).toContain("LocalService.run");
+  });
+});

@@ -35,6 +35,7 @@ export type EdgeKind =
   | "static-method"
   | "di-default"
   | "instrument-wrapper"
+  | "instance-method"
   | "re-export"
   | "external";
 
@@ -162,4 +163,6 @@ export interface ParsedFile {
   exportedNames: Map<string, string>;
   /** Map from "ObjName.propName" to local function qualifiedName (for object-literal exports) */
   objectPropertyBindings: Map<string, string>;
+  /** Map from variable name to constructor class name (e.g. "myInstance" → "MyClass") */
+  instanceBindings: Map<string, string>;
 }

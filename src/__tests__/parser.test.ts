@@ -767,3 +767,38 @@ describe("parseSource - function signatures", () => {
     expect(fn?.signature).toBeUndefined();
   });
 });
+
+describe("parseSource - instance bindings", () => {
+  it("extracts const x = new ClassName()", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `import { Registry } from './registry';
+      const reg = new Registry();`,
+    );
+    expect(parsed.instanceBindings.get("reg")).toBe("Registry");
+  });
+
+  it("extracts const x = new ClassName(args)", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class Service {}
+      const svc = new Service("config", 42);`,
+    );
+    expect(parsed.instanceBindings.get("svc")).toBe("Service");
+  });
+
+  it("skips non-identifier constructors (new ns.Class())", () => {
+    const parsed = parseSource("/test/file.ts", `const x = new ns.MyClass();`);
+    expect(parsed.instanceBindings.size).toBe(0);
+  });
+
+  it("extracts multiple instance bindings in one file", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `const a = new Foo();
+      const b = new Bar();`,
+    );
+    expect(parsed.instanceBindings.get("a")).toBe("Foo");
+    expect(parsed.instanceBindings.get("b")).toBe("Bar");
+  });
+});

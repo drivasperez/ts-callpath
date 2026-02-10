@@ -475,6 +475,34 @@ export class Resolver {
       }
     }
 
+    // 2b. Check instance bindings: objectName may be a variable from `new ClassName()`
+    const className = callerFile.instanceBindings.get(objectName);
+    if (className) {
+      const instResult = this.resolvePropertyCallViaImport(className, propertyName, callerFile);
+      if (instResult) return { ...instResult, kind: "instance-method" };
+
+      // Also check local class
+      const localQN = `${className}.${propertyName}`;
+      const localMeth = callerFile.functions.find((f) => f.qualifiedName === localQN);
+      if (localMeth) {
+        const id = makeFunctionId(callerFile.filePath, localQN);
+        return {
+          targetId: id,
+          targetNode: {
+            id,
+            filePath: callerFile.filePath,
+            qualifiedName: localQN,
+            line: localMeth.line,
+            endLine: localMeth.endLine,
+            isInstrumented: localMeth.isInstrumented,
+            description: localMeth.description,
+            signature: localMeth.signature,
+          },
+          kind: "instance-method",
+        };
+      }
+    }
+
     // 3. Check if objectName is a local class
     const qualifiedName = `${objectName}.${propertyName}`;
     const localMethod = callerFile.functions.find((f) => f.qualifiedName === qualifiedName);
