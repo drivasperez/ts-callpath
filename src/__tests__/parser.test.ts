@@ -59,6 +59,19 @@ describe("parseSource - class methods", () => {
     expect(parsed.functions[0].qualifiedName).toBe("MyService.create");
   });
 
+  it("extracts new expression as constructor call site", () => {
+    const parsed = parseSource(
+      "/test/file.ts",
+      `class MyService {
+        static create() { return new MyService(); }
+      }`,
+    );
+    const createFn = parsed.functions.find((f) => f.qualifiedName === "MyService.create");
+    expect(createFn!.callSites).toEqual([
+      expect.objectContaining({ objectName: "MyService", propertyName: "constructor" }),
+    ]);
+  });
+
   it("extracts constructor call sites", () => {
     const parsed = parseSource(
       "/test/file.ts",

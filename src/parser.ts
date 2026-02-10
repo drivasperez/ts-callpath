@@ -561,6 +561,33 @@ function extractCallSites(node: ts.Node, out: CallSite[], sourceFile: ts.SourceF
     return;
   }
 
+  // new ClassName(...) → treat as a call to ClassName.constructor
+  if (ts.isNewExpression(node)) {
+    const expr = node.expression;
+    if (ts.isIdentifier(expr)) {
+      const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+      out.push({ objectName: expr.text, propertyName: "constructor", line });
+    }
+
+    // Walk into arguments (same as CallExpression handling)
+    if (node.arguments) {
+      for (const arg of node.arguments) {
+        if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
+          if (arg.body) {
+            if (ts.isBlock(arg.body)) {
+              extractCallSites(arg.body, out, sourceFile);
+            } else {
+              extractCallSitesFromExpression(arg.body, out, sourceFile);
+            }
+          }
+        } else {
+          extractCallSites(arg, out, sourceFile);
+        }
+      }
+    }
+    return;
+  }
+
   ts.forEachChild(node, (child) => extractCallSites(child, out, sourceFile));
 }
 
