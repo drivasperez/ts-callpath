@@ -5,16 +5,16 @@ TypeScript call graph slicer and HTML visualiser.
 ## Commands
 
 ```bash
-pnpm install                    # Install deps
-pnpm test                       # All tests, watch mode
-pnpm test:unit                  # Unit tests only, watch mode
-pnpm test:browser               # Browser tests only, watch mode
-pnpm test:ci                    # All tests, single run (CI)
-pnpm test:unit:ci               # Unit tests only, single run
-pnpm test:browser:ci            # Browser tests only, single run
-pnpm typecheck                  # Type-check, watch mode
-pnpm typecheck:ci               # Type-check, single run
-pnpm build:visualiser           # Bundle the visualiser
+bun install                     # Install deps
+bun test                        # All tests, watch mode
+bun test:unit                   # Unit tests only, watch mode
+bun test:browser                # Browser tests only, watch mode
+bun test:ci                     # All tests, single run (CI)
+bun test:unit:ci                # Unit tests only, single run
+bun test:browser:ci             # Browser tests only, single run
+bun typecheck                   # Type-check, watch mode
+bun typecheck:ci                # Type-check, single run
+bun build:visualiser            # Bundle the visualiser
 ```
 
 ## Module Structure
