@@ -78,19 +78,6 @@ function matchesPattern(relPath: string, pattern: string): boolean {
 }
 
 /**
- * Strip the @org/ prefix from a team name for display.
- * E.g. "@watershed-climate/calcprint" → "calcprint"
- */
-function stripTeamPrefix(team: string): string {
-  const slash = team.lastIndexOf("/");
-  if (slash !== -1) {
-    return team.slice(slash + 1);
-  }
-  // Strip leading @
-  return team.startsWith("@") ? team.slice(1) : team;
-}
-
-/**
  * Get the owning teams for a file path.
  * Uses last-matching-rule-wins semantics (per GitHub CODEOWNERS spec).
  */
@@ -102,7 +89,7 @@ export function getFileOwners(relPath: string, rules: CodeownersRule[]): string[
     }
   }
   if (!lastMatch) return [];
-  return lastMatch.teams.map(stripTeamPrefix);
+  return lastMatch.teams;
 }
 
 /**

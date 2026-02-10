@@ -58,27 +58,22 @@ describe("getFileOwners", () => {
     // py/jobs/special/foo.py matches both py/jobs/ and py/jobs/special/
     // Last match (py/jobs/special/) wins
     const owners = getFileOwners("py/jobs/special/foo.py", rules);
-    expect(owners).toEqual(["special"]);
+    expect(owners).toEqual(["@org/special"]);
   });
 
   it("matches directory prefix patterns", () => {
     const owners = getFileOwners("py/jobs/transform.py", rules);
-    expect(owners).toEqual(["backend"]);
+    expect(owners).toEqual(["@org/backend"]);
   });
 
   it("matches recursive glob patterns", () => {
     const owners = getFileOwners("workspaces/domain/service/BartService.ts", rules);
-    expect(owners).toEqual(["domain"]);
+    expect(owners).toEqual(["@org/domain"]);
   });
 
   it("matches exact file patterns", () => {
     const owners = getFileOwners("src/file.ts", rules);
-    expect(owners).toEqual(["specific"]);
-  });
-
-  it("strips @org/ prefix from team names", () => {
-    const owners = getFileOwners("py/jobs/foo.py", rules);
-    expect(owners).toEqual(["backend"]);
+    expect(owners).toEqual(["@org/specific"]);
   });
 
   it("returns empty array when no rules match", () => {
@@ -91,13 +86,13 @@ describe("getFileOwners", () => {
   it("handles patterns with leading slash", () => {
     const rules: CodeownersRule[] = [{ pattern: "/src/config.ts", teams: ["@org/infra"] }];
     const owners = getFileOwners("src/config.ts", rules);
-    expect(owners).toEqual(["infra"]);
+    expect(owners).toEqual(["@org/infra"]);
   });
 
   it("handles multiple team owners", () => {
     const rules: CodeownersRule[] = [{ pattern: "shared/", teams: ["@org/team-a", "@org/team-b"] }];
     const owners = getFileOwners("shared/utils.ts", rules);
-    expect(owners).toEqual(["team-a", "team-b"]);
+    expect(owners).toEqual(["@org/team-a", "@org/team-b"]);
   });
 });
 
@@ -106,8 +101,8 @@ describe("buildCodeownersMap", () => {
     const rules: CodeownersRule[] = [{ pattern: "src/", teams: ["@org/frontend"] }];
     const map = buildCodeownersMap(["src/app.ts", "src/utils.ts", "lib/other.ts"], rules);
     expect(map).toEqual({
-      "src/app.ts": ["frontend"],
-      "src/utils.ts": ["frontend"],
+      "src/app.ts": ["@org/frontend"],
+      "src/utils.ts": ["@org/frontend"],
     });
     expect(map["lib/other.ts"]).toBeUndefined();
   });
