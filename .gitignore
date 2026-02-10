@@ -3,3 +3,4 @@ node_modules/.vite/
 node_modules/.bin/
 visualiser/dist/
 *.tsbuildinfo
+dist/
